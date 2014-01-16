@@ -1,0 +1,9 @@
+The call hierarchy:
+1. OS starts in nachos.machine.Machine.java: main() -> 
+2. 	call AutoGrader.start(privilege) ->
+3. 		In nachos.machine.AutoGrader.java: start() -> kernel.initialize() ->
+4. 		In nachos.threads.ThreadedKernel.java (extends Kernel): initialize() -> new KThread(null) ->
+5. 		In nachos.thread.KThread.java: (constructor) ->
+6.	AutoGrader.selfTest() -> kernel.selfTest() ->
+7.		KThread: new PingTest... (That is where outputs originated)
+8.	run()...
