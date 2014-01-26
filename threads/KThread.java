@@ -417,8 +417,9 @@ public class KThread {
 		 * Add one line to complete project 0
 		 */
 		new PingTest(0).run();  // add here
+		new KThread(new PingTest(2)).setName("forked thread").fork();
 		new KThread(new PingTest(1)).setName("forked thread").fork();
-		new PingTest(2).run();
+		//new PingTest(2).run();
 	}
 
 	private static final char dbgThread = 't';
