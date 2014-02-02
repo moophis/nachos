@@ -6,4 +6,6 @@ The call hierarchy:
 5. 		In nachos.thread.KThread.java: (constructor) ->
 6.	AutoGrader.selfTest() -> kernel.selfTest() ->
 7.		KThread: new PingTest... (That is where outputs originated)
-8.	run()...
+8.		kernel.run()...
+9.		kernel.terminate(): when this function is called, other running threads terminate also, 
+		                    the system halt completely.

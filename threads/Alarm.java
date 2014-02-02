@@ -1,5 +1,8 @@
 package nachos.threads;
 
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.Comparator;
+
 import nachos.machine.*;
 
 /**
@@ -29,7 +32,25 @@ public class Alarm {
 	 * should be run.
 	 */
 	public void timerInterrupt() {
-		KThread.currentThread().yield();
+		/**
+		 * On timer interrupt, the handler checks whether there are pending
+		 * threads to be woke up.
+		 * @author liqiangw 
+		 */
+		long machineTime = Machine.timer().getTime();
+		System.out.println("--- In timerInterrupt(): " + KThread.currentThread() 
+					+ " @" + machineTime);
+		WaitingThread wt = null;
+		while ((wt = sleepQueue.peek()) != null 
+				&& wt.getWakeTime() <= machineTime) {
+			sleepQueue.poll();
+			wt.getThread().ready();  // move this thread on the ready queue
+			System.out.println("    " + wt.getThread() 
+					+ " wakes up @" + Machine.timer().getTime()
+					+ " (should wake up @" + wt.wakeTime + ")");
+		}
+		
+		KThread.yield();
 	}
 
 	/**
@@ -43,11 +64,72 @@ public class Alarm {
 	 * @param x the minimum number of clock ticks to wait.
 	 * 
 	 * @see nachos.machine.Timer#getTime()
+	 * 
+	 * @author liqiangw 
 	 */
 	public void waitUntil(long x) {
-		// for now, cheat just to get something working (busy waiting is bad)
+		if (x <= 0)
+			return;	// do nothing
+		
 		long wakeTime = Machine.timer().getTime() + x;
-		while (wakeTime > Machine.timer().getTime())
-			KThread.yield();
+		System.out.println(KThread.currentThread() + " waits @" 
+					+ Machine.timer().getTime());
+//		while (wakeTime > Machine.timer().getTime())
+//			KThread.yield();
+		
+		/**
+		 * Implement waitUntil() method by maintaining a linked list as a wait 
+		 * queue so that the kernel can keep track of sleeping threads. 
+		 */
+		WaitingThread current = new WaitingThread(KThread.currentThread(), wakeTime);
+		sleepQueue.add(current);
+		
+		boolean intStatus = Machine.interrupt().disable();
+		KThread.sleep();	// have current thread relinquish its execution
+		Machine.interrupt().restore(intStatus);
 	}
+	
+	/**
+	 * Data structure for waiting thread (= a KThread reference + its wake time) 
+	 * @author liqiangw
+	 */
+	private class WaitingThread {
+		private KThread kt = null;
+		private long wakeTime = -1;
+		
+		public WaitingThread(KThread kt, long wakeTime) {
+			this.kt = kt;
+			this.wakeTime = wakeTime;
+		}
+		
+		public long getWakeTime() {
+			return wakeTime;
+		}
+		
+		public KThread getThread() {
+			return kt;
+		}
+	}
+	
+	/**
+	 * The comparator for <tt>WaitingThread</tt>. 
+	 * @author liqiangw
+	 */
+	private class WaitingThreadComparator implements Comparator<WaitingThread> {
+		public WaitingThreadComparator() {
+			
+		}
+		
+		public int compare(WaitingThread t1, WaitingThread t2) {
+			return t1.getWakeTime() < t2.getWakeTime() ? -1 : 1;
+		}
+	}
+	
+	/**
+	 * A priority queue that stores the sleeping kernel threads which called
+	 * <tt>waitUntil()</tt> along with the wake time. 
+	 * @author liqiangw
+	 */
+	private PriorityBlockingQueue<WaitingThread> sleepQueue 
+				= new PriorityBlockingQueue<WaitingThread>(10, new WaitingThreadComparator());
 }

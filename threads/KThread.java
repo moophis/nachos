@@ -400,7 +400,11 @@ public class KThread {
 			for (int i = 0; i < 5; i++) {
 				System.out.println("*** thread " + which + " looped " + i
 						+ " times");
-				currentThread.yield();
+				if (which == 1)
+					ThreadedKernel.alarm.waitUntil(100);
+				else 
+					ThreadedKernel.alarm.waitUntil(900);
+//				currentThread.yield();
 			}
 		}
 
@@ -416,10 +420,16 @@ public class KThread {
 		/*
 		 * Add one line to complete project 0
 		 */
-		new PingTest(0).run();  // add here
-		new KThread(new PingTest(2)).setName("forked thread").fork();
-		new KThread(new PingTest(1)).setName("forked thread").fork();
-		//new PingTest(2).run();
+		new KThread(new PingTest(1)).setName("PingTest 1").fork();
+		//new PingTest(0).run();  // add here
+		new KThread(new PingTest(2)).setName("PingTest 2").fork();
+		/*
+		 * FIXME:
+		 * The *main* thread should be the last one to terminate,
+		 * so join() method is needed.
+		 */
+		ThreadedKernel.alarm.waitUntil(3000);
+		System.out.println(currentThread() + " leaves selfTest() @" + Machine.timer().getTime());
 	}
 
 	private static final char dbgThread = 't';
