@@ -17,7 +17,7 @@ import java.util.Iterator;
  * that has been waiting longest.
  * 
  * <p>
- * Essentially, a priority scheduler gives access in a round-robin fassion to
+ * Essentially, a priority scheduler gives access in a round-robin fashion to
  * all the highest-priority threads, and ignores all other threads. This has the
  * potential to starve a thread if there's always a thread waiting with higher
  * priority.
