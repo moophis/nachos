@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.LinkedList;
 
 /**
  * An implementation of condition variables that disables interrupt()s for
@@ -10,6 +11,7 @@ import nachos.machine.*;
  * You must implement this.
  * 
  * @see nachos.threads.Condition
+ * @author Ryan Garcia
  */
 public class Condition2 {
 	/**
@@ -21,6 +23,8 @@ public class Condition2 {
 	 */
 	public Condition2(Lock conditionLock) {
 		this.conditionLock = conditionLock;
+		
+		waitQueue = new LinkedList<KThread>();
 	}
 
 	/**
@@ -32,8 +36,14 @@ public class Condition2 {
 	public void sleep() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 
+		waitQueue.add(KThread.currentThread());
+		
 		conditionLock.release();
-
+		
+		boolean intStatus = Machine.interrupt().disable();
+		KThread.sleep();
+		Machine.interrupt().restore(intStatus);
+		
 		conditionLock.acquire();
 	}
 
@@ -43,6 +53,14 @@ public class Condition2 {
 	 */
 	public void wake() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		
+		boolean intStatus = Machine.interrupt().disable();
+		if(!waitQueue.isEmpty()) {
+			KThread nextThread = waitQueue.getFirst();
+			nextThread.ready();
+			waitQueue.removeFirst();
+		}
+		Machine.interrupt().restore(intStatus);
 	}
 
 	/**
@@ -51,7 +69,13 @@ public class Condition2 {
 	 */
 	public void wakeAll() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		
+		while (!waitQueue.isEmpty())
+			wake();
+
 	}
 
 	private Lock conditionLock;
+	private LinkedList<KThread> waitQueue;
+	
 }

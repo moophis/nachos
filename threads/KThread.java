@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.LinkedList;
+
 import nachos.machine.*;
 
 /**
@@ -54,6 +56,8 @@ public class KThread {
 	 * create an idle thread as well.
 	 */
 	public KThread() {
+		joinQueue = new LinkedList<KThread>();
+		
 		if (currentThread != null) {
 			tcb = new TCB();
 		}
@@ -190,9 +194,13 @@ public class KThread {
 	 * other execution state are still in use. Instead, this thread will be
 	 * destroyed automatically by the next thread to run, when it is safe to
 	 * delete this thread.
+	 * 
+	 * Modified: wake up threads which called join().
+	 * @author liqiangw
 	 */
 	public static void finish() {
 		Lib.debug(dbgThread, "Finishing thread: " + currentThread.toString());
+		System.out.println("Thread finished: " + currentThread().toString());
 
 		Machine.interrupt().disable();
 
@@ -202,6 +210,12 @@ public class KThread {
 		toBeDestroyed = currentThread;
 
 		currentThread.status = statusFinished;
+		
+		// Wake up pending threads which called join()
+		while (!currentThread.joinQueue.isEmpty()) {
+			KThread t = currentThread.joinQueue.poll();
+			t.ready();
+		}
 
 		sleep();
 	}
@@ -269,6 +283,8 @@ public class KThread {
 		Lib.assertTrue(status != statusReady);
 
 		status = statusReady;
+		// If this is not the idle thread, then tell the ready 
+		// queue this thread is waiting to run.
 		if (this != idleThread)
 			readyQueue.waitForAccess(this);
 
@@ -279,12 +295,21 @@ public class KThread {
 	 * Waits for this thread to finish. If this thread is already finished,
 	 * return immediately. This method must only be called once; the second call
 	 * is not guaranteed to return. This thread must not be the current thread.
+	 * 
+	 * @author Ryan Garcia & liqiangw
 	 */
 	public void join() {
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 		Lib.assertTrue(this != currentThread);
 
+		while (this.status != statusFinished) {
+			boolean intStatus = Machine.interrupt().disable();
+			joinQueue.add(currentThread);
+			KThread.sleep();	
+			Machine.interrupt().restore(intStatus);
+		}
+		System.out.println(this.getName() + " thread is already joined.");
 	}
 
 	/**
@@ -401,11 +426,12 @@ public class KThread {
 				System.out.println("*** thread " + which + " looped " + i
 						+ " times");
 				if (which == 1)
-					ThreadedKernel.alarm.waitUntil(100);
+					ThreadedKernel.alarm.waitUntil(500);
 				else 
-					ThreadedKernel.alarm.waitUntil(900);
+					ThreadedKernel.alarm.waitUntil(1000);
 //				currentThread.yield();
 			}
+			finish();
 		}
 
 		private int which;
@@ -420,15 +446,14 @@ public class KThread {
 		/*
 		 * Add one line to complete project 0
 		 */
-		new KThread(new PingTest(1)).setName("PingTest 1").fork();
-		//new PingTest(0).run();  // add here
-		new KThread(new PingTest(2)).setName("PingTest 2").fork();
-		/*
-		 * FIXME:
-		 * The *main* thread should be the last one to terminate,
-		 * so join() method is needed.
-		 */
-		ThreadedKernel.alarm.waitUntil(3000);
+		KThread t1 = new KThread(new PingTest(1)).setName("PingTest 1");
+		KThread t2 = new KThread(new PingTest(2)).setName("PingTest 2");
+		t1.fork();
+		t2.fork();
+
+		//ThreadedKernel.alarm.waitUntil(3000);
+		t1.join();
+		t2.join();
 		System.out.println(currentThread() + " leaves selfTest() @" + Machine.timer().getTime());
 	}
 
@@ -474,10 +499,13 @@ public class KThread {
 	private static int numCreated = 0;
 
 	private static ThreadQueue readyQueue = null;
-
+	
 	private static KThread currentThread = null;
 
 	private static KThread toBeDestroyed = null;
 
 	private static KThread idleThread = null;
+	
+	/** The queue storing threads which called join() for this thread */
+	private LinkedList<KThread> joinQueue = null;
 }
