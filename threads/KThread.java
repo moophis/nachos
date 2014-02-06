@@ -431,7 +431,6 @@ public class KThread {
 					ThreadedKernel.alarm.waitUntil(1000);
 //				currentThread.yield();
 			}
-			finish();
 		}
 
 		private int which;
