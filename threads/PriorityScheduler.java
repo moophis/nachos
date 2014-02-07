@@ -2,9 +2,7 @@ package nachos.threads;
 
 import nachos.machine.*;
 
-import java.util.TreeSet;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.concurrent.PriorityBlockingQueue;
 
 /**
@@ -153,6 +151,8 @@ public class PriorityScheduler extends Scheduler {
 			if (ts == null)
 				return null;
 			
+			ts.currentWait = null;
+			
 			priorityQueue.poll();	// dequeue
 			return ts.thread;
 		}
@@ -176,6 +176,24 @@ public class PriorityScheduler extends Scheduler {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// implement me (if you want)
 		}
+		
+		/** 
+		 * Get the resource holder of this queue.
+		 * 
+		 * @return the resource holder.
+		 */
+		public ThreadState getHolder() {
+			return resHolder;
+		}
+		
+		/**
+		 * Set a new resource holder of this queue.
+		 * 
+		 * @param holder The new holder to be set.
+		 */
+		public void setHolder(ThreadState holder) {
+			resHolder = holder;
+		}
 
 		/**
 		 * <tt>true</tt> if this queue should transfer priority from waiting
@@ -185,6 +203,9 @@ public class PriorityScheduler extends Scheduler {
 		
 		/** The scheduling priority queue */
 		public PriorityBlockingQueue<ThreadState> priorityQueue = null;
+		
+		/** The resource (lock, semaphore, etc.) holder of this wait queue. */
+		private ThreadState resHolder = null;
 	}
 
 	/**
@@ -204,9 +225,8 @@ public class PriorityScheduler extends Scheduler {
 		public ThreadState(KThread thread) {
 			this.thread = thread;
 
-			setPriority(priorityDefault);
-			effectivePriority = getPriority();
-			enqueuingTime = Machine.timer().getTime();
+			doneeList = new ArrayList<ThreadState>();
+			donatorList = new ArrayList<ThreadState>();
 		}
 
 		/**
@@ -238,14 +258,60 @@ public class PriorityScheduler extends Scheduler {
 		public void setPriority(int priority) {
 			if (this.priority == priority)
 				return;
-
+			
 			this.priority = priority;
 
 			// implement me
-			// Adjust the effective priority to at least the priority
-			// FIXME: might be wrong.
-			if (this.effectivePriority < this.priority) {
-				this.effectivePriority = this.priority;
+			if (this.priority > this.getEffectivePriority()) {
+				this.setEffectivePriority(priority);
+			}
+		}
+		
+		/**
+		 * Set the effective priority of the associated thread to the 
+		 * specified value.
+		 * 
+		 * @param priority the new effective priority.
+		 * @author liqiangw
+		 */
+		public void setEffectivePriority(int priority) {
+			if (priority <= priorityMaximum 
+					&& priority >= priorityMinimum) {
+				if (priority == getEffectivePriority())
+					return;
+				
+				this.effectivePriority = priority;
+			
+				if (currentWait != null 
+						&& currentWait.transferPriority) {
+					this.donate();
+				}
+			}
+		}
+		
+		/**
+		 * Called when the current waiting thread should update the effective 
+		 * priorities of threads holding the resources. This method will
+		 * recursively update all effective priorities that are influenced
+		 * by the change of this.effectivePriority.
+		 * 
+		 * It will change the effective priorities of caller's donees.
+		 * 
+		 * @author liqiangw
+		 */
+		private void donate() {
+			if (doneeList.isEmpty())
+				return;
+			
+			for (ThreadState donee : doneeList) {
+				int ep = -1;
+				for (ThreadState donator : donee.donatorList) {
+					ep = Math.max(ep, donator.getEffectivePriority());
+				}
+				this.effectivePriority = ep;
+				
+				/** Be careful: there is a recursive call. */
+				donee.donate();
 			}
 		}
 
@@ -258,14 +324,31 @@ public class PriorityScheduler extends Scheduler {
 		 * 
 		 * @param waitQueue the queue that the associated thread is now waiting
 		 * on.
+		 * Note: waitQueue is the queue specific to certain resources such as a
+		 * lock.
 		 * 
 		 * @see nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
+			Lib.assertTrue(waitQueue != null);
+			
 			enqueuingTime = Machine.timer().getTime(); // update enqueuing time
 			waitQueue.priorityQueue.add(this);
+			currentWait = waitQueue;
+			
+			/** Donate the resource holder of this queue. */
+			if (currentWait.transferPriority) {
+				ThreadState holder;
+				if ((holder = waitQueue.getHolder()) != null) {
+					if (!doneeList.contains(holder)) {
+						doneeList.add(holder);
+						holder.donatorList.add(this);
+					}
+				}
+				this.donate();
+			}
 		}
 
 		/**
@@ -281,11 +364,56 @@ public class PriorityScheduler extends Scheduler {
 		public void acquire(PriorityQueue waitQueue) {
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
+			Lib.assertTrue(waitQueue != null);
 			Lib.assertTrue(waitQueue.priorityQueue.isEmpty());
+			
+			currentWait = waitQueue;
+		
+			/**
+			 * Find the thread whose effective priority should be
+			 * set back to its own priority.
+			 * 
+			 * This is the case when a thread releases a resource
+			 * and needs changing its effective priority. 
+			 */
+			if (currentWait.transferPriority) {
+				ThreadState holder;
+				/**
+				 * If the holder of the wait queue is not null or self,
+				 * it must be the one who recently release the 
+				 * resource, so that this thread can acquire it. 
+				 */
+				if ((holder = waitQueue.getHolder()) != null
+						                   && holder != this) {
+					/**
+					 * Re-calculate the effective priority for the
+					 * last holder (including itself). 
+					 */
+					int p = -1;
+					for (ThreadState t : holder.donatorList) {
+						if (t != this)
+							p = Math.max(p, t.getEffectivePriority());
+					}
+					if (p < priorityMinimum)
+						p = holder.getPriority(); // its own priority
+					/**
+					 * it will call donate() eventually.
+					 */
+					holder.setEffectivePriority(p); 
+					
+					/**
+					 * Remove certain records in donatorList. 
+					 */
+					if (holder.donatorList.contains(this)) {
+						holder.donatorList.remove(this);
+					}
+				} 
+				waitQueue.setHolder(this);
+			}
 		}
 		
 		/**
-		 * The comparator of ThreadState 
+		 * The comparator of ThreadState. 
 		 */
 		public int compareTo(ThreadState that) {
 			if (this.getEffectivePriority() > that.getEffectivePriority()) {
@@ -300,36 +428,29 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 		}
-		
-		/** Whether current thread has acquired a resource. */
-		private boolean hasAcquired() {
-			return acquired;
-		}
-		
-		private void setAcquired() {
-			acquired = true;
-		}
-		
-		private void clearAcquired() {
-			acquired = false;
-		}
 
 		/** The thread with which this object is associated. */
 		protected KThread thread;
 
 		/** The priority of the associated thread. */
-		protected int priority;
+		protected int priority = priorityDefault;
 		
 		/** The effective priority of the associated thread. */
-		protected int effectivePriority;
+		protected int effectivePriority = priorityDefault;
 		
-		/** The time staying in the waitQueue */
-		protected long enqueuingTime;
+		/** The time staying in the waitQueue. */
+		protected long enqueuingTime = Long.MAX_VALUE;
+		
+		/** The priority queue this thread currently wait on. */
+		protected PriorityQueue currentWait = null;
 		
 		/** 
-		 * Value of whether this thread has acquired for locks, semaphores 
-		 * and condition variables. 
+		 * The list of threads who are donated by this thread. 
+		 * Note: It only contains direct donee(s).
 		 */
-		private boolean acquired = false;
+		protected ArrayList<ThreadState> doneeList = null;
+		
+		/** The list of threads who once donated to this thread. */
+		protected ArrayList<ThreadState> donatorList = null;
 	}
 }

@@ -81,10 +81,10 @@ public class Alarm {
 		 * Implement waitUntil() method by maintaining a linked list as a wait 
 		 * queue so that the kernel can keep track of sleeping threads. 
 		 */
+		boolean intStatus = Machine.interrupt().disable();
 		WaitingThread current = new WaitingThread(KThread.currentThread(), wakeTime);
 		sleepQueue.add(current);
 		
-		boolean intStatus = Machine.interrupt().disable();
 		KThread.sleep();	// have current thread relinquish its execution
 		Machine.interrupt().restore(intStatus);
 	}
