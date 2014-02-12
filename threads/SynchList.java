@@ -73,7 +73,7 @@ public class SynchList {
 		SynchList ping = new SynchList();
 		SynchList pong = new SynchList();
 
-		new KThread(new PingTest(ping, pong)).setName("ping").fork();
+		new KThread(new PingTest(ping, pong)).setName("ping2").fork();
 
 		for (int i = 0; i < 10; i++) {
 			Integer o = new Integer(i);

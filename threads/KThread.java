@@ -425,10 +425,10 @@ public class KThread {
 			for (int i = 0; i < 5; i++) {
 				System.out.println("*** thread " + which + " looped " + i
 						+ " times");
-				if (which == 1)
-					ThreadedKernel.alarm.waitUntil(500);
-				else 
-					ThreadedKernel.alarm.waitUntil(1000);
+//				if (which == 1)
+//					ThreadedKernel.alarm.waitUntil(500);
+//				else 
+//					ThreadedKernel.alarm.waitUntil(1000);
 //				currentThread.yield();
 			}
 		}
@@ -442,17 +442,18 @@ public class KThread {
 	public static void selfTest() {
 		Lib.debug(dbgThread, "Enter KThread.selfTest");
 		
-		/*
-		 * Add one line to complete project 0
-		 */
-		KThread t1 = new KThread(new PingTest(1)).setName("PingTest 1");
-		KThread t2 = new KThread(new PingTest(2)).setName("PingTest 2");
-		t1.fork();
-		t2.fork();
-
-		//ThreadedKernel.alarm.waitUntil(3000);
-		t1.join();
-		t2.join();
+//		/*
+//		 * Add one line to complete project 0
+//		 */
+//		KThread t1 = new KThread(new PingTest(1)).setName("PingTest 1");
+//		KThread t2 = new KThread(new PingTest(2)).setName("PingTest 2");
+//		t1.fork();
+//		t2.fork();
+////
+////		//ThreadedKernel.alarm.waitUntil(3000);
+//		t1.join();
+//		t2.join();
+		PriorityScheduler.selfTest2();
 		System.out.println(currentThread() + " leaves selfTest() @" + Machine.timer().getTime());
 	}
 
