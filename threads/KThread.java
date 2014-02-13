@@ -306,7 +306,7 @@ public class KThread {
 		while (this.status != statusFinished) {
 			boolean intStatus = Machine.interrupt().disable();
 			joinQueue.add(currentThread);
-			KThread.sleep();	
+			KThread.sleep();	// waiting to be woke up by finish()
 			Machine.interrupt().restore(intStatus);
 		}
 		System.out.println(this.getName() + " thread is already joined.");

@@ -5,6 +5,8 @@ import nachos.machine.*;
 import java.util.ArrayList;
 import java.util.concurrent.PriorityBlockingQueue;
 
+import javax.swing.text.html.MinimalHTMLWriter;
+
 /**
  * A scheduler that chooses threads based on their priorities.
  * 
@@ -182,6 +184,9 @@ public class PriorityScheduler extends Scheduler {
     			System.out.println("Low thread 1 releasing lock1 ...");
     			
     			lock1.release();
+    			KThread.yield();
+    			
+    			System.err.println("Low thread 1 running AFTER releasing the lock ...");
     		}
     	}).setName("Low Thread 1");
     	
@@ -204,6 +209,9 @@ public class PriorityScheduler extends Scheduler {
     			System.out.println("Low thread 2 releasing lock2 ...");
     			
     			lock2.release();
+    			KThread.yield();
+    			
+    			System.err.println("Low thread 2 running AFTER releasing the lock ...");
     		}
     	}).setName("Low Thread 2");
     	
@@ -326,10 +334,15 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (ts == null)
 				return null;
-			
-			ts.currentWait = null;
+			System.out.println("   ### DEQUE " + ts.thread + ", EP=" + ts.effectivePriority +
+					", enqueue time: " + ts.enqueuingTime);
 			
 			priorityQueue.poll();	// dequeue
+			
+			if (priorityQueue.isEmpty())
+				ts.acquire(this);
+			
+			ts.currentWait = null;
 			return ts.thread;
 		}
 
@@ -342,6 +355,19 @@ public class PriorityScheduler extends Scheduler {
 		protected ThreadState pickNextThread() {
 			// implement me
 			if (!priorityQueue.isEmpty()) {
+//				System.out.println("#### In pickNextThread(): next: "
+//						+ priorityQueue.peek().thread);
+				/**
+				 * Refresh the queue.
+				 * XXX: This implementation is not efficient. 
+				 */
+				PriorityBlockingQueue<ThreadState> tmp = 
+						new PriorityBlockingQueue<ThreadState>();
+				while (!priorityQueue.isEmpty()) {
+					tmp.add(priorityQueue.poll());
+				}
+				priorityQueue = tmp;
+				print();
 				return priorityQueue.peek();
 			} else {
 				return null;
@@ -351,6 +377,13 @@ public class PriorityScheduler extends Scheduler {
 		public void print() {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// implement me (if you want)
+			System.out.println("/*********** Print current queue, transferPriority ? "
+						+ transferPriority);
+			for (ThreadState t : priorityQueue) {
+				System.out.println(t.thread + ": P = " + t.priority + ", EP = " 
+							+ t.effectivePriority + ", enqueued @" + t.enqueuingTime);
+			}
+			System.out.println("**********************************************************/");
 		}
 		
 		/** 
@@ -465,6 +498,8 @@ public class PriorityScheduler extends Scheduler {
 				if (currentWait != null 
 						&& currentWait.transferPriority) {
 					this.donate();
+					System.out.println("++ After donation(set EP), next thread: " 
+					                  + currentWait.pickNextThread().thread);
 				}
 			}
 		}
@@ -473,27 +508,35 @@ public class PriorityScheduler extends Scheduler {
 		 * Called when the current waiting thread should update the effective 
 		 * priorities of threads holding the resources. This method will
 		 * recursively update all effective priorities that are influenced
-		 * by the change of this.effectivePriority.
+		 * by the change of <tt>this.effectivePriority</tt>.
 		 * 
 		 * It will change the effective priorities of caller's donees.
 		 * 
 		 * @author liqiangw
 		 */
 		private void donate() {
+			Lib.assertTrue(currentWait != null);
 			System.out.println("   *** -> In donate() of " + this.thread 
 					          + " EP = " + this.getEffectivePriority());
 			if (this.doneeList.isEmpty())
 				return;
 			
-			for (ThreadState donee: doneeList) {
+			for (ThreadState donee : doneeList) {
 				System.out.println("      *** donee: " + donee.thread.toString());
 			}
+			
 			for (ThreadState donee : doneeList) {
 				int ep = -1;
+				/**
+				 * Should consider the case when multiple threads wait
+				 * on one thread. 
+				 */
 				for (ThreadState donator : donee.donatorList) {
+					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
 					ep = Math.max(ep, donator.getEffectivePriority());
 				}
-				donee.effectivePriority = ep;
+				donee.effectivePriority = (ep >= donee.getEffectivePriority()) 
+										 ? ep : donee.getPriority();
 				
 				/** Be careful: there is a recursive call. */
 				donee.donate();
@@ -525,7 +568,7 @@ public class PriorityScheduler extends Scheduler {
 			waitQueue.priorityQueue.add(this);
 			currentWait = waitQueue;
 			
-			/** Donate the resource holder of this queue. */
+			/** Donate to the resource holder of this queue. */
 			if (currentWait.transferPriority) {
 				ThreadState holder;
 				if ((holder = waitQueue.getHolder()) != null) {
@@ -543,6 +586,8 @@ public class PriorityScheduler extends Scheduler {
 					}
 				}
 				this.donate();
+				System.out.println("++ After donation (wait), next thread: " 
+		                  + currentWait.pickNextThread().thread);
 			}
 		}
 
@@ -557,7 +602,7 @@ public class PriorityScheduler extends Scheduler {
 		 * @see nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
-			System.out.println("### In " + this.thread.toString() + "--> acquire()"
+			System.err.println("### In " + this.thread.toString() + "--> acquire()"
 					           + " = transport priority? " + waitQueue.transferPriority);
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
@@ -579,6 +624,7 @@ public class PriorityScheduler extends Scheduler {
 				 * If the holder of the wait queue is not null or self,
 				 * it must be the one who recently releases the 
 				 * resource, so that this thread can acquire it. 
+				 * That is how we can know who is the last holder.
 				 */
 				if ((holder = waitQueue.getHolder()) != null
 						                   && holder != this) {
@@ -602,7 +648,18 @@ public class PriorityScheduler extends Scheduler {
 					 * Remove certain records in donatorList. 
 					 */
 					if (holder.donatorList.contains(this)) {
+						System.out.println("### ---> " + this.thread + 
+								" is deleted from donatorList of " + holder.thread);
 						holder.donatorList.remove(this);
+					}
+					
+					/**
+					 * Remove certain records in doneeList. 
+					 */
+					if (this.doneeList.contains(holder)) {
+						System.out.println("### ---> " + holder.thread + 
+								" is deleted from doneeList of " + this.thread);
+						this.doneeList.remove(holder);
 					}
 				} 
 				waitQueue.setHolder(this);
