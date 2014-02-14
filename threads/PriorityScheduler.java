@@ -103,6 +103,124 @@ public class PriorityScheduler extends Scheduler {
 	 * 
 	 * XXX: After finish it, delete this code snippet.
 	 */
+	public static void selfTest() {
+		boolean oldP;
+		final Lock lock1 = new Lock();
+    	final Lock lock2 = new Lock();
+    	
+    	// low thread
+    	KThread lowKt1 = new KThread(new Runnable() {
+    		public void run() {
+    			lock1.acquire();
+    			
+    			System.out.println("--------Low thread 1 acquired lock1");
+    			
+    			for(int i=1; i <=3; i++) {
+    				System.out.println("--------Low thread 1 running "+i+" times ...");
+    				KThread.yield();
+    			}
+    			
+    			System.out.println("--------Low thread 1 releasing lock1 ...");
+    			
+    			lock1.release();
+    			KThread.yield();
+    			
+    			System.err.println("--------Low thread 1 running AFTER releasing the lock 1...");
+    		}
+    	}).setName("Low Thread 1");
+    	oldP = Machine.interrupt().disable();
+    	ThreadedKernel.scheduler.setPriority(lowKt1, 1);
+    	Machine.interrupt().restore(oldP);
+    	
+    	// middle thread
+    	KThread midKt1 = new KThread(new Runnable() {
+    		public void run() {
+    			lock2.acquire();
+    			
+    			System.out.println("--------Middle thread 1 has acquired lock2 ...");
+    			
+    			for (int i = 0; i < 3; i++) {
+    				System.out.println("--------Middle thread 1 running "+i+" times ...");
+    				KThread.yield();
+    			}
+    			
+    			System.out.println("--------Middle thread 1 releasing lock2 ...");
+    			
+    			lock2.release();
+    			KThread.yield();
+    			
+    			System.err.println("--------Middle thread 1 running AFTER releasing the lock 2...");
+    		}
+    	}).setName("Middle Thread 1");
+    	oldP = Machine.interrupt().disable();
+    	ThreadedKernel.scheduler.setPriority(midKt1, 1);
+    	Machine.interrupt().restore(oldP);
+
+    	// high thread 
+    	KThread highKt1 = new KThread(new Runnable() {
+    		public void run() {
+    			lock1.acquire();
+    			lock2.acquire();
+    			
+    			System.out.println("--------High thread 1 get lock 1, 2, now yield");
+    			KThread.yield();
+    			
+    			for (int i = 0; i < 3; i++) {
+    				System.out.println("--------High thread 1 running "+i+" times ...");
+    				KThread.yield();
+    			}
+    			
+    			System.out.println("--------High thread 1 releasing lock 1, 2, now yield");
+    			lock2.release();
+    			lock1.release();
+    			KThread.yield();
+    			
+    			System.err.println("--------High thread 1 running AFTER releasing the lock 1,2...");
+    		}
+    	}).setName("High Thread 1");
+    	oldP = Machine.interrupt().disable();
+    	ThreadedKernel.scheduler.setPriority(highKt1, 5);
+    	Machine.interrupt().restore(oldP);
+    	
+    	// high thread 
+    	KThread highKt2 = new KThread(new Runnable() {
+    		public void run() {
+    			lock2.acquire();
+    			
+    			System.out.println("--------High thread 2 get lock 2");
+
+    			for (int i = 0; i < 3; i++) {
+    				System.out.println("--------High thread 1 running "+i+" times ...");
+    				KThread.yield();
+    			}
+    			System.out.println("--------High thread 2 releasing lock 2, now yield");
+    			
+    			lock2.release();
+    			KThread.yield();
+    			
+    			System.err.println("--------High thread 2 running AFTER releasing the lock 2...");
+    		}
+    	}).setName("High Thread 2");
+    	oldP = Machine.interrupt().disable();
+    	ThreadedKernel.scheduler.setPriority(highKt2, 5);
+    	Machine.interrupt().restore(oldP);
+    	
+    	lowKt1.fork();
+    	KThread.yield();
+    	
+    	midKt1.fork();
+    	KThread.yield();
+    	
+    	highKt1.fork();
+    	highKt2.fork();
+    	KThread.yield();
+    	
+    	highKt2.join();
+    	highKt1.join();
+    	midKt1.join();
+    	lowKt1.join();
+	}
+	
 	public static void selfTest1() {
 		System.out.println("---------PriorityScheduler test---------------------");
 		PriorityScheduler s = new PriorityScheduler();
@@ -338,7 +456,7 @@ public class PriorityScheduler extends Scheduler {
 			
 			priorityQueue.poll();	// dequeue
 			
-			if (priorityQueue.isEmpty())
+//			if (priorityQueue.isEmpty())
 				ts.acquire(this);
 			
 			ts.currentWait = null;
@@ -520,9 +638,9 @@ public class PriorityScheduler extends Scheduler {
 			if (this.doneeList.isEmpty())
 				return;
 			
-//			for (ThreadState donee : doneeList) {
-//				System.out.println("      *** donee: " + donee.thread.toString());
-//			}
+			for (ThreadState donee : doneeList) {
+				System.out.println("      *** donee: " + donee.thread.toString());
+			}
 			
 			for (ThreadState donee : doneeList) {
 				int ep = -1;
@@ -531,7 +649,7 @@ public class PriorityScheduler extends Scheduler {
 				 * on one thread. 
 				 */
 				for (ThreadState donator : donee.donatorList) {
-//					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
+					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
 					ep = Math.max(ep, donator.getEffectivePriority());
 				}
 				donee.effectivePriority = (ep >= donee.getEffectivePriority()) 
@@ -577,16 +695,16 @@ public class PriorityScheduler extends Scheduler {
 					 */
 					if (!doneeList.contains(holder) 
 							&& this.getEffectivePriority() > holder.getEffectivePriority()) {
-//						System.err.println("         ---> this ("+ getEffectivePriority() 
-//								       + ") add " + holder.thread + " (" + holder.getEffectivePriority()
-//								       + ") to doneeList");
+						System.err.println("         ---> this ("+ getEffectivePriority() 
+								       + ") add " + holder.thread + " (" + holder.getEffectivePriority()
+								       + ") to doneeList");
 						doneeList.add(holder);
 						holder.donatorList.add(this);
 					}
 				}
 				this.donate();
-//				System.out.println("++ After donation (wait), next thread: " 
-//		                  + currentWait.pickNextThread().thread);
+				System.out.println("++ After donation (wait), next thread: " 
+		                  + currentWait.pickNextThread().thread);
 			}
 		}
 
@@ -606,7 +724,6 @@ public class PriorityScheduler extends Scheduler {
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
 			Lib.assertTrue(waitQueue != null);
-			Lib.assertTrue(waitQueue.priorityQueue.isEmpty());
 			
 			currentWait = waitQueue;
 		
@@ -615,7 +732,7 @@ public class PriorityScheduler extends Scheduler {
 			 * set back to its own priority.
 			 * 
 			 * This is the case when a thread releases a resource
-			 * and needs changing its effective priority. 
+			 * and needs roll back its effective priority. 
 			 */
 			if (currentWait.transferPriority) {
 				ThreadState holder;
@@ -627,6 +744,24 @@ public class PriorityScheduler extends Scheduler {
 				 */
 				if ((holder = waitQueue.getHolder()) != null
 						                   && holder != this) {
+					/**
+					 * Remove certain records in donatorList. 
+					 */
+					if (holder.donatorList.contains(this)) {
+						System.out.println("### ---> " + this.thread + 
+								" is deleted from donatorList of " + holder.thread);
+						holder.donatorList.remove(this);
+					}
+					
+					/**
+					 * Remove certain records in doneeList. 
+					 */
+					if (this.doneeList.contains(holder)) {
+						System.out.println("### ---> " + holder.thread + 
+								" is deleted from doneeList of " + this.thread);
+						this.doneeList.remove(holder);
+					}
+					
 					/**
 					 * Re-calculate the effective priority for the
 					 * last holder (including itself). 
@@ -642,24 +777,7 @@ public class PriorityScheduler extends Scheduler {
 					 * it will call donate() eventually.
 					 */
 					holder.setEffectivePriority(p); 
-					
-					/**
-					 * Remove certain records in donatorList. 
-					 */
-					if (holder.donatorList.contains(this)) {
-//						System.out.println("### ---> " + this.thread + 
-//								" is deleted from donatorList of " + holder.thread);
-						holder.donatorList.remove(this);
-					}
-					
-					/**
-					 * Remove certain records in doneeList. 
-					 */
-					if (this.doneeList.contains(holder)) {
-//						System.out.println("### ---> " + holder.thread + 
-//								" is deleted from doneeList of " + this.thread);
-						this.doneeList.remove(holder);
-					}
+					System.err.println(holder.thread + " has new EP = " + holder.effectivePriority);
 				} 
 				waitQueue.setHolder(this);
 			}

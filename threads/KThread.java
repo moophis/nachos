@@ -453,7 +453,7 @@ public class KThread {
 ////		//ThreadedKernel.alarm.waitUntil(3000);
 //		t1.join();
 //		t2.join();
-		PriorityScheduler.selfTest2();
+		PriorityScheduler.selfTest();
 		System.out.println(currentThread() + " leaves selfTest() @" + Machine.timer().getTime());
 	}
 
