@@ -5,7 +5,6 @@ import nachos.machine.*;
 import java.util.ArrayList;
 import java.util.concurrent.PriorityBlockingQueue;
 
-import javax.swing.text.html.MinimalHTMLWriter;
 
 /**
  * A scheduler that chooses threads based on their priorities.
@@ -174,19 +173,19 @@ public class PriorityScheduler extends Scheduler {
     		public void run() {
     			lock1.acquire();
     			
-    			System.out.println("Low thread 1 acquired lock1");
+    			System.out.println("!!!Low thread 1 acquired lock1");
     			
     			for(int i=1; i <=3; i++) {
-    				System.out.println("Low thread 1 running "+i+" times ...");
+    				System.out.println("!!!Low thread 1 running "+i+" times ...");
     				KThread.yield();
     			}
     			
-    			System.out.println("Low thread 1 releasing lock1 ...");
+    			System.out.println("!!!Low thread 1 releasing lock1 ...");
     			
     			lock1.release();
     			KThread.yield();
     			
-    			System.err.println("Low thread 1 running AFTER releasing the lock ...");
+    			System.err.println("!!!Low thread 1 running AFTER releasing the lock ...");
     		}
     	}).setName("Low Thread 1");
     	
@@ -199,19 +198,19 @@ public class PriorityScheduler extends Scheduler {
     		public void run() {
     			lock2.acquire();
     			
-    			System.out.println("Low thread 2 acquired lock2");
+    			System.out.println("!!!Low thread 2 acquired lock2");
     			
     			for(int i=1; i <=3; i++) {
-    				System.out.println("Low thread 2 running "+i+" times ...");
+    				System.out.println("!!!Low thread 2 running "+i+" times ...");
     				KThread.yield();
     			}
     			
-    			System.out.println("Low thread 2 releasing lock2 ...");
+    			System.out.println("!!!Low thread 2 releasing lock2 ...");
     			
     			lock2.release();
     			KThread.yield();
     			
-    			System.err.println("Low thread 2 running AFTER releasing the lock ...");
+    			System.err.println("!!!Low thread 2 running AFTER releasing the lock ...");
     		}
     	}).setName("Low Thread 2");
     	
@@ -224,19 +223,19 @@ public class PriorityScheduler extends Scheduler {
     		public void run() {
     			lock1.acquire();
     			
-    			System.out.println("High thread acquired lock1");
+    			System.out.println("!!!High thread acquired lock1");
     			
     			lock1.release();
     			
-    			System.out.println("High thread released lock1");
+    			System.out.println("!!!High thread released lock1");
     			
     			lock2.acquire();
     			
-    			System.out.println("High thread acquired lock2");
+    			System.out.println("!!!High thread acquired lock2");
     			
     			lock2.release();
     			
-    			System.out.println("High thread released lock2");
+    			System.out.println("!!!High thread released lock2");
     		}
     	}).setName("High Thread");
     	
@@ -248,7 +247,7 @@ public class PriorityScheduler extends Scheduler {
     	KThread middleKt = new KThread(new Runnable() {
     		public void run() {    			
     			for(int i=1;i<=3;i++) {
-	    			System.out.println("Middle thread running "+i+" times ...");
+	    			System.out.println("!!!Middle thread running "+i+" times ...");
 
 	    			KThread.yield();
     			}
@@ -334,8 +333,8 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (ts == null)
 				return null;
-			System.out.println("   ### DEQUE " + ts.thread + ", EP=" + ts.effectivePriority +
-					", enqueue time: " + ts.enqueuingTime);
+//			System.out.println("   ### DEQUE " + ts.thread + ", EP=" + ts.effectivePriority +
+//					", enqueue time: " + ts.enqueuingTime);
 			
 			priorityQueue.poll();	// dequeue
 			
@@ -465,8 +464,8 @@ public class PriorityScheduler extends Scheduler {
 		 * @author liqiangw
 		 */
 		public void setPriority(int priority) {
-			System.out.println("### In " + this.thread.toString() 
-					           + "--> setPriority(" + priority + ") ");
+//			System.out.println("### In " + this.thread.toString() 
+//					           + "--> setPriority(" + priority + ") ");
 
 			if (this.priority == priority)
 				return;
@@ -498,8 +497,8 @@ public class PriorityScheduler extends Scheduler {
 				if (currentWait != null 
 						&& currentWait.transferPriority) {
 					this.donate();
-					System.out.println("++ After donation(set EP), next thread: " 
-					                  + currentWait.pickNextThread().thread);
+//					System.out.println("++ After donation(set EP), next thread: " 
+//					                  + currentWait.pickNextThread().thread);
 				}
 			}
 		}
@@ -521,9 +520,9 @@ public class PriorityScheduler extends Scheduler {
 			if (this.doneeList.isEmpty())
 				return;
 			
-			for (ThreadState donee : doneeList) {
-				System.out.println("      *** donee: " + donee.thread.toString());
-			}
+//			for (ThreadState donee : doneeList) {
+//				System.out.println("      *** donee: " + donee.thread.toString());
+//			}
 			
 			for (ThreadState donee : doneeList) {
 				int ep = -1;
@@ -532,7 +531,7 @@ public class PriorityScheduler extends Scheduler {
 				 * on one thread. 
 				 */
 				for (ThreadState donator : donee.donatorList) {
-					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
+//					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
 					ep = Math.max(ep, donator.getEffectivePriority());
 				}
 				donee.effectivePriority = (ep >= donee.getEffectivePriority()) 
@@ -578,16 +577,16 @@ public class PriorityScheduler extends Scheduler {
 					 */
 					if (!doneeList.contains(holder) 
 							&& this.getEffectivePriority() > holder.getEffectivePriority()) {
-						System.err.println("         ---> this ("+ getEffectivePriority() 
-								       + ") add " + holder.thread + " (" + holder.getEffectivePriority()
-								       + ") to doneeList");
+//						System.err.println("         ---> this ("+ getEffectivePriority() 
+//								       + ") add " + holder.thread + " (" + holder.getEffectivePriority()
+//								       + ") to doneeList");
 						doneeList.add(holder);
 						holder.donatorList.add(this);
 					}
 				}
 				this.donate();
-				System.out.println("++ After donation (wait), next thread: " 
-		                  + currentWait.pickNextThread().thread);
+//				System.out.println("++ After donation (wait), next thread: " 
+//		                  + currentWait.pickNextThread().thread);
 			}
 		}
 
@@ -602,7 +601,7 @@ public class PriorityScheduler extends Scheduler {
 		 * @see nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
-			System.err.println("### In " + this.thread.toString() + "--> acquire()"
+			System.out.println("### In " + this.thread.toString() + "--> acquire()"
 					           + " = transport priority? " + waitQueue.transferPriority);
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
@@ -648,8 +647,8 @@ public class PriorityScheduler extends Scheduler {
 					 * Remove certain records in donatorList. 
 					 */
 					if (holder.donatorList.contains(this)) {
-						System.out.println("### ---> " + this.thread + 
-								" is deleted from donatorList of " + holder.thread);
+//						System.out.println("### ---> " + this.thread + 
+//								" is deleted from donatorList of " + holder.thread);
 						holder.donatorList.remove(this);
 					}
 					
@@ -657,8 +656,8 @@ public class PriorityScheduler extends Scheduler {
 					 * Remove certain records in doneeList. 
 					 */
 					if (this.doneeList.contains(holder)) {
-						System.out.println("### ---> " + holder.thread + 
-								" is deleted from doneeList of " + this.thread);
+//						System.out.println("### ---> " + holder.thread + 
+//								" is deleted from doneeList of " + this.thread);
 						this.doneeList.remove(holder);
 					}
 				} 
