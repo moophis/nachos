@@ -172,7 +172,6 @@ public class Boat {
 		numChildOahu++;
 		while(!isFinished)
 		{
-			System.out.println("Not finished");
 			if(childLocation.get(index) == Island.OAHU)
 			{
 				//Case 1: Boat is on Oahu, more than one child on Oahu => two children take boat to Molokai

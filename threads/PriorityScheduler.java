@@ -456,8 +456,8 @@ public class PriorityScheduler extends Scheduler {
 			
 			priorityQueue.poll();	// dequeue
 			
-//			if (priorityQueue.isEmpty())
-				ts.acquire(this);
+			// update the efficient priority if possible.
+			ts.acquire(this);
 			
 			ts.currentWait = null;
 			return ts.thread;

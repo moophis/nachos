@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import nachos.ag.*;
 
 /**
  * A multi-threaded OS kernel.
@@ -46,7 +47,7 @@ public class ThreadedKernel extends Kernel {
 	 * here.
 	 */
 	public void selfTest() {
-		KThread.selfTest();
+//		KThread.selfTest();
 //		System.err.println(" ++++++ Now begin Semaphore ++++++");
 //		Semaphore.selfTest();
 //		System.err.println(" ++++++ Now begin SynchList ++++++");
@@ -63,7 +64,7 @@ public class ThreadedKernel extends Kernel {
 	 * nothing.
 	 */
 	public void run() {
-		System.out.println(KThread.currentThread() + ": run() @" + Machine.timer().getTime());
+//		System.out.println(KThread.currentThread() + ": run() @" + Machine.timer().getTime());
 	}
 
 	/**
