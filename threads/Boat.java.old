@@ -21,7 +21,7 @@ public class Boat {
 	public static void selfTest() {
 		BoatGrader b = new BoatGrader();
 
-		begin(5, 2, b);
+		begin(1, 3, b);
 	}
 
 	public static void begin(int adults, int children, BoatGrader b) {
@@ -66,9 +66,9 @@ public class Boat {
 		isFinished = false;
 		firstChild = true;
 		lastTrip = false;
-		numChildOahu = 0;
+		numChildOahu = children; // change it here
 		numChildMolokai = 0;
-		numAdultOahu = 0;
+		numAdultOahu = adults;  // change it here
 		numAdultMolokai = 0;
 		numOpenSeats = 2;
 		
@@ -131,15 +131,18 @@ public class Boat {
 
 		boatLock.acquire();
 		finishTrip.sleep();
+		System.out.println("main thread waked!");
+		if (numChildMolokai == children && numAdultMolokai == adults)
+			System.err.println("All people on Molokai, mission complete!");
 		
-		System.out.println("All forked, waiting to be joined");
-		for (KThread kt : allThreads)
-			kt.join();
 		
-
 		boatLock.release();
 		
 		isFinished = true;
+		
+//		for (KThread kt : allThreads)
+//			kt.join();
+
 		System.out.println("End of Testing.");
 	}
 
@@ -153,11 +156,11 @@ public class Boat {
 
 		boatLock.acquire();
 		System.err.println("In AdultItinerary(" + index + "): got the boat!");
-		numAdultOahu++;
+//		numAdultOahu++;
 		
 		int temp = 0;
 		
-		//while(!isFinished) // FIXME: isFinished never is never set to be true
+//		while(!isFinished) // FIXME: isFinished never is never set to be true
 		
 		while(temp < 10000)
 		{
@@ -216,11 +219,12 @@ public class Boat {
 	public static void ChildItinerary(int index) {
 		boatLock.acquire();
 		System.err.println("In ChildItinerary(" + index + "): got the boat!");
-		numChildOahu++;
+//		numChildOahu++;
+		System.out.println("child # on Oahu:" + numChildOahu);
 		
 		
 		int temp2 = 0;
-		//while(!isFinished)
+//		while(!isFinished)
 		while(temp2 < 10000)
 		{
 			temp2++;
@@ -238,12 +242,14 @@ public class Boat {
 						
 						waitChildOnOahu.wake();
 						//wait for rower to get on, children never go Oahu-Molokai alone
+						System.err.println(index + " sleep at line  245");
 						waitForSecondChild.sleep();
 						
 						//now the boat is full, we can go to Molokai
 						bg.ChildRideToMolokai();						
 
 						numChildOahu = numChildOahu - 2;
+						System.out.println("child # on Oahu:" + numChildOahu);
 						boatIsland = Island.MOLOKAI;
 						childLocation.set(index, Island.MOLOKAI);
 						numChildMolokai = numChildMolokai + 2;
@@ -273,6 +279,7 @@ public class Boat {
 					//If the boat is already full, numOpenSeats == 0
 					else
 					{
+						System.err.println(index + " sleep at line  282");
 						waitChildOnOahu.sleep();
 					}
 				}
@@ -285,12 +292,14 @@ public class Boat {
 					numOpenSeats--;
 
 					//wait for rower to get on, children never go Oahu-Molokai alone
+					System.err.println(index + " sleep at line  295");
 					waitForSecondChild.sleep();
 
 					bg.ChildRideToMolokai();	
 					
 					//now the boat is full, we can go to Molokai
 					numChildOahu = numChildOahu - 2;
+					System.out.println("child # on Oahu:" + numChildOahu);
 					boatIsland = Island.MOLOKAI;
 					childLocation.set(index, Island.MOLOKAI);
 					numChildMolokai = numChildMolokai + 2;
@@ -310,7 +319,7 @@ public class Boat {
 				{
 					//Adult is going to ride, so most of this should be handled in AdultItinerary
 					waitAdultOnOahu.wakeAll();
-					
+					System.err.println(index + " sleep at line  322");
 					waitChildOnOahu.sleep();
 				}
 				//Boat is on Oahu, two children on Oahu, no adults (FINISH CASE)
@@ -318,10 +327,62 @@ public class Boat {
 				{
 					System.out.println("We are the last two people on Oahu.  Final trip. Go!");
 					/* THIS IS THE FINISH CASE. STILL NEEDS TO BE WRITTEN. SHOULD BE ALMOST IDENTICAL TO INITIAL 'IF' IN THIS BLOCK */
+					//If this is the first child onto the boat
+//					if(numOpenSeats == 2)
+//					{	
+//						System.out.println("numOpenSeats = 2");
+//						//decrement numOpenSeats because we just filled one
+//						numOpenSeats--;
+//						
+//						waitChildOnOahu.wake();
+//						//wait for rower to get on, children never go Oahu-Molokai alone
+//						System.err.println(index + " sleep at line  339");
+//						waitForSecondChild.sleep();
+//						System.out.println("wake up from second child");
+//						
+//						//now the boat is full, we can go to Molokai
+//						bg.ChildRideToMolokai();						
+//
+//						numChildOahu = numChildOahu - 2;
+//						boatIsland = Island.MOLOKAI;
+//						childLocation.set(index, Island.MOLOKAI);
+//						numChildMolokai = numChildMolokai + 2;
+//
+//						//boat is empty again
+//						numOpenSeats = 2;
+//						waitChildOnOahu.wakeAll();
+//						
+//						if(numAdultOahu == 0)
+//						{
+//							lastTrip = true;
+//						}
+//					}
+//					//If this is the second child onto the boat
+//					else if(numOpenSeats == 1)
+//					{
+//						System.out.println("numOpenSeats = 1");
+//						//decrement numOpenSeats because we just filled one
+//						numOpenSeats--;
+//
+//						//wake up the passenger who was waiting for second child to get on boat
+//						waitForSecondChild.wake();
+//						
+//						//now the boat is full, we can go to Molokai
+//						bg.ChildRowToMolokai();
+//						childLocation.set(index, Island.MOLOKAI);
+//					}
+//					//If the boat is already full, numOpenSeats == 0
+//					else
+//					{
+//						System.err.println(index + " sleep at line  377");
+//						waitChildOnOahu.sleep();
+//					}
 				}
 				//Boat is on Molokai
+				// XXX: that is wrong!
 				else
 				{
+					System.err.println(index + " sleep at line  384");
 					waitChildOnOahu.sleep();
 					waitChildOnMolokai.wake();
 				}
@@ -343,16 +404,19 @@ public class Boat {
 							boatIsland = Island.OAHU;
 							childLocation.set(index, Island.OAHU);
 							numChildOahu++;
+							System.out.println("child # on Oahu:" + numChildOahu);
 						}
 						//Boat is not empty
 						else
 						{
+							System.err.println(index + " sleep at line  411");
 							waitChildOnMolokai.sleep();
 						}
 					}
 					//Boat is on Oahu
 					else
 					{
+						System.err.println(index + " sleep at line  418");
 						waitChildOnMolokai.sleep();
 						waitChildOnOahu.wake();
 					}
