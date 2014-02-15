@@ -36,7 +36,6 @@ public class Lock {
 		KThread thread = KThread.currentThread();
 
 		if (lockHolder != null) {
-			System.err.println(thread + " cannot acquire the lock held by " + lockHolder);
 			waitQueue.waitForAccess(thread);
 			KThread.sleep();
 		}

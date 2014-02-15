@@ -38,14 +38,14 @@ public class Alarm {
 		 * @author liqiangw 
 		 */
 		long machineTime = Machine.timer().getTime();
-		System.out.println("--- In timerInterrupt(): " + KThread.currentThread() 
+		Lib.debug(dbgAlarm, "--- In timerInterrupt(): " + KThread.currentThread() 
 					+ " @" + machineTime);
 		WaitingThread wt = null;
 		while ((wt = sleepQueue.peek()) != null 
 				&& wt.getWakeTime() <= machineTime) {
 			sleepQueue.poll();
 			wt.getThread().ready();  // move this thread on the ready queue
-			System.out.println("    " + wt.getThread() 
+			Lib.debug(dbgAlarm, "    " + wt.getThread() 
 					+ " wakes up @" + Machine.timer().getTime()
 					+ " (should wake up @" + wt.wakeTime + ")");
 		}
@@ -72,7 +72,7 @@ public class Alarm {
 			return;	// do nothing
 		
 		long wakeTime = Machine.timer().getTime() + x;
-		System.out.println(KThread.currentThread() + " waits @" 
+		Lib.debug(dbgAlarm, KThread.currentThread() + " waits @" 
 					+ Machine.timer().getTime());
 //		while (wakeTime > Machine.timer().getTime())
 //			KThread.yield();
@@ -132,4 +132,6 @@ public class Alarm {
 	 */
 	private PriorityBlockingQueue<WaitingThread> sleepQueue 
 				= new PriorityBlockingQueue<WaitingThread>(10, new WaitingThreadComparator());
+	
+	private static final char dbgAlarm = 'a';
 }

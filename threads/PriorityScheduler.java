@@ -3,6 +3,7 @@ package nachos.threads;
 import nachos.machine.*;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.concurrent.PriorityBlockingQueue;
 
 
@@ -27,11 +28,12 @@ import java.util.concurrent.PriorityBlockingQueue;
  * particular, priority must be donated through locks, and through joins.
  */
 public class PriorityScheduler extends Scheduler {
+	private static final char dbgPS = 'p';
 	/**
 	 * Allocate a new priority scheduler.
 	 */
 	public PriorityScheduler() {
-		System.out.println("Use Prority Scheduler!");
+		Lib.debug(dbgPS, "Use Prority Scheduler!");
 	}
 
 	/**
@@ -442,7 +444,7 @@ public class PriorityScheduler extends Scheduler {
 		}
 
 		public KThread nextThread() {
-			System.out.println("### In nextThread()" + " transport priority? " 
+			Lib.debug(dbgPS, "### In nextThread()" + " transport priority? " 
 		                       + this.transferPriority + " holder: " 
 					           + (resHolder == null ? "none" : getHolder().thread));
 			Lib.assertTrue(Machine.interrupt().disabled());
@@ -451,8 +453,8 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (ts == null)
 				return null;
-//			System.out.println("   ### DEQUE " + ts.thread + ", EP=" + ts.effectivePriority +
-//					", enqueue time: " + ts.enqueuingTime);
+			Lib.debug(dbgPS, "   ### DEQUE " + ts.thread + ", EP=" + ts.effectivePriority +
+					", enqueue time: " + ts.enqueuingTime);
 			
 			priorityQueue.poll();	// dequeue
 			
@@ -472,8 +474,8 @@ public class PriorityScheduler extends Scheduler {
 		protected ThreadState pickNextThread() {
 			// implement me
 			if (!priorityQueue.isEmpty()) {
-//				System.out.println("#### In pickNextThread(): next: "
-//						+ priorityQueue.peek().thread);
+				Lib.debug(dbgPS, "#### In pickNextThread(): next: "
+						+ priorityQueue.peek().thread);
 				/**
 				 * Refresh the queue.
 				 * XXX: This implementation is not efficient. 
@@ -494,13 +496,13 @@ public class PriorityScheduler extends Scheduler {
 		public void print() {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// implement me (if you want)
-			System.out.println("/*********** Print current queue, transferPriority ? "
+			Lib.debug(dbgPS, "/*********** Print current queue, transferPriority ? "
 						+ transferPriority);
 			for (ThreadState t : priorityQueue) {
-				System.out.println(t.thread + ": P = " + t.priority + ", EP = " 
+				Lib.debug(dbgPS, t.thread + ": P = " + t.priority + ", EP = " 
 							+ t.effectivePriority + ", enqueued @" + t.enqueuingTime);
 			}
-			System.out.println("**********************************************************/");
+			Lib.debug(dbgPS, "**********************************************************/");
 		}
 		
 		/** 
@@ -582,8 +584,8 @@ public class PriorityScheduler extends Scheduler {
 		 * @author liqiangw
 		 */
 		public void setPriority(int priority) {
-//			System.out.println("### In " + this.thread.toString() 
-//					           + "--> setPriority(" + priority + ") ");
+			Lib.debug(dbgPS, "### In " + this.thread.toString() 
+					           + "--> setPriority(" + priority + ") ");
 
 			if (this.priority == priority)
 				return;
@@ -591,9 +593,6 @@ public class PriorityScheduler extends Scheduler {
 			this.priority = priority;
 
 			// implement me
-//			if (this.priority > this.getEffectivePriority()) {
-//				this.setEffectivePriority(priority);
-//			}
 			this.setEffectivePriority(priority);
 		}
 		
@@ -615,8 +614,6 @@ public class PriorityScheduler extends Scheduler {
 				if (currentWait != null 
 						&& currentWait.transferPriority) {
 					this.donate();
-//					System.out.println("++ After donation(set EP), next thread: " 
-//					                  + currentWait.pickNextThread().thread);
 				}
 			}
 		}
@@ -633,13 +630,13 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		private void donate() {
 			Lib.assertTrue(currentWait != null);
-			System.out.println("   *** -> In donate() of " + this.thread 
+			Lib.debug(dbgPS, "   *** -> In donate() of " + this.thread 
 					          + " EP = " + this.getEffectivePriority());
 			if (this.doneeList.isEmpty())
 				return;
 			
 			for (ThreadState donee : doneeList) {
-				System.out.println("      *** donee: " + donee.thread.toString());
+				Lib.debug(dbgPS, "      *** donee: " + donee.thread.toString());
 			}
 			
 			for (ThreadState donee : doneeList) {
@@ -649,11 +646,14 @@ public class PriorityScheduler extends Scheduler {
 				 * on one thread. 
 				 */
 				for (ThreadState donator : donee.donatorList) {
-					System.out.println("      " + donee.thread + " has donator: " + donator.thread);
+					Lib.debug(dbgPS, "      " + donee.thread + " has donator: " + 
+							donator.thread + " EP = " + donator.effectivePriority);
 					ep = Math.max(ep, donator.getEffectivePriority());
 				}
-				donee.effectivePriority = (ep >= donee.getEffectivePriority()) 
+				donee.effectivePriority = (ep >= donee.getPriority()) 
 										 ? ep : donee.getPriority();
+				Lib.debug(dbgPS, "      -->" + donee.thread + " now has EP = " + 
+										 donee.effectivePriority);
 				
 				/** Be careful: there is a recursive call. */
 				donee.donate();
@@ -675,15 +675,16 @@ public class PriorityScheduler extends Scheduler {
 		 * @see nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
-			System.out.println("### In " + this.thread.toString() + "--> waitForAccess()"
-					          + " = transport priority? " + waitQueue.transferPriority);
+			Lib.debug(dbgPS, "### In " + this.thread.toString() + "--> waitForAccess()"
+					          + " = transport priority? " + waitQueue.transferPriority
+					          + " currentWait = " + waitQueue);
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
 			Lib.assertTrue(waitQueue != null);
 			
 			enqueuingTime = Machine.timer().getTime(); // update enqueuing time
-			waitQueue.priorityQueue.add(this);
 			currentWait = waitQueue;
+			waitQueue.priorityQueue.add(this);
 			
 			/** Donate to the resource holder of this queue. */
 			if (currentWait.transferPriority) {
@@ -693,17 +694,24 @@ public class PriorityScheduler extends Scheduler {
 					 * Add the holder to the doneeList whenever the holder's
 					 * effective priority needs to be promoted. 
 					 */
-					if (!doneeList.contains(holder) 
-							&& this.getEffectivePriority() > holder.getEffectivePriority()) {
-						System.err.println("         ---> this ("+ getEffectivePriority() 
+					Lib.debug(dbgPS, "   ### holder: " + holder.thread);
+					if (!doneeList.contains(holder)) {
+						Lib.debug(dbgPS, "         ---> this ("+ getEffectivePriority() 
 								       + ") add " + holder.thread + " (" + holder.getEffectivePriority()
 								       + ") to doneeList");
 						doneeList.add(holder);
 						holder.donatorList.add(this);
+					} else if (doneeList.contains(holder)) {
+						Lib.debug(dbgPS, "   ### doneeList has contained " + holder.thread);
+					} else {
+						Lib.debug(dbgPS, "   ### holder: " + holder.thread + " has higher EP = "
+								+ holder.effectivePriority + " than this EP = " + this.effectivePriority);
 					}
+				} else {
+					Lib.debug(dbgPS, "holder is null");
 				}
 				this.donate();
-				System.out.println("++ After donation (wait), next thread: " 
+				Lib.debug(dbgPS, "++ After donation (wait), next thread: " 
 		                  + currentWait.pickNextThread().thread);
 			}
 		}
@@ -719,8 +727,9 @@ public class PriorityScheduler extends Scheduler {
 		 * @see nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
-			System.out.println("### In " + this.thread.toString() + "--> acquire()"
-					           + " = transport priority? " + waitQueue.transferPriority);
+			Lib.debug(dbgPS, "### In " + this.thread.toString() + "--> acquire()"
+					           + " = transport priority? " + waitQueue.transferPriority
+					           + " currentWait = " + waitQueue);
 			// implement me
 			Lib.assertTrue(Machine.interrupt().disabled());
 			Lib.assertTrue(waitQueue != null);
@@ -745,21 +754,32 @@ public class PriorityScheduler extends Scheduler {
 				if ((holder = waitQueue.getHolder()) != null
 						                   && holder != this) {
 					/**
-					 * Remove certain records in donatorList. 
+					 * Very important step, otherwise holder.currentWait = null. 
 					 */
-					if (holder.donatorList.contains(this)) {
-						System.out.println("### ---> " + this.thread + 
-								" is deleted from donatorList of " + holder.thread);
-						holder.donatorList.remove(this);
-					}
+					holder.currentWait = waitQueue;
 					
 					/**
-					 * Remove certain records in doneeList. 
+					 * Remove all the donators (from donatorList) who share the same
+					 * current wait queue with the previous resource holder.
+					 * 
+					 * We should iterate through all the donatorList of the holder
+					 * in order to handle the case when multiple threads may wait
+					 * on this lock. If it is not appropriately dealt, the effective
+					 * priority of the holder might be wrong.
+					 * 
+					 * The donators' doneeList should also be updated accordingly.
 					 */
-					if (this.doneeList.contains(holder)) {
-						System.out.println("### ---> " + holder.thread + 
-								" is deleted from doneeList of " + this.thread);
-						this.doneeList.remove(holder);
+					Iterator<ThreadState> it = holder.donatorList.iterator();
+					while (it.hasNext()) {
+						ThreadState donator = it.next();
+						Lib.debug(dbgPS, "holder waits on: " + holder.currentWait
+								+ ", its donator waits on: " + donator.currentWait);
+						if (donator.currentWait == holder.currentWait) {
+							it.remove();
+							if (donator.doneeList.contains(holder)) {
+								donator.doneeList.remove(holder);
+							}
+						}
 					}
 					
 					/**
@@ -768,16 +788,18 @@ public class PriorityScheduler extends Scheduler {
 					 */
 					int p = -1;
 					for (ThreadState t : holder.donatorList) {
-						if (t != this)
+						if (t != this && t.currentWait != holder.currentWait) {
+							Lib.debug(dbgPS, "holder has donator: " + t.thread);
 							p = Math.max(p, t.getEffectivePriority());
+						}
 					}
-					if (p < priorityMinimum)
+					if (p < holder.getPriority())
 						p = holder.getPriority(); // its own priority
 					/**
 					 * it will call donate() eventually.
 					 */
 					holder.setEffectivePriority(p); 
-					System.err.println(holder.thread + " has new EP = " + holder.effectivePriority);
+					Lib.debug(dbgPS, holder.thread + " has new EP = " + holder.effectivePriority);
 				} 
 				waitQueue.setHolder(this);
 			}

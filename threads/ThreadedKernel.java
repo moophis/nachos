@@ -47,7 +47,7 @@ public class ThreadedKernel extends Kernel {
 	 * here.
 	 */
 	public void selfTest() {
-//		KThread.selfTest();
+		KThread.selfTest();
 //		System.err.println(" ++++++ Now begin Semaphore ++++++");
 //		Semaphore.selfTest();
 //		System.err.println(" ++++++ Now begin SynchList ++++++");
