@@ -26,7 +26,7 @@ public class Boat {
 
 	public static void begin(int adults, int children, BoatGrader b) {
 		System.out.println("There are " + adults + " adults" + " and " + children + " children");
-		Lib.assertTrue(adults >= 0 && children >= 0);
+		Lib.assertTrue(adults >= 0 && children >= 2);
 
 		childLocation = new ArrayList<Island>();
 		adultLocation = new ArrayList<Island>();
@@ -131,15 +131,18 @@ public class Boat {
 
 		boatLock.acquire();
 		finishTrip.sleep();
+		System.out.println("main thread waked!");
+		if (numChildMolokai == children && numAdultMolokai == adults)
+			System.err.println("All people on Molokai, mission complete!");
 		
-		System.out.println("All forked, waiting to be joined");
-		for (KThread kt : allThreads)
-			kt.join();
 		
-
 		boatLock.release();
 		
 		isFinished = true;
+		
+//		for (KThread kt : allThreads)
+//			kt.join();
+
 		System.out.println("End of Testing.");
 	}
 
@@ -157,7 +160,7 @@ public class Boat {
 		
 		int temp = 0;
 		
-		//while(!isFinished) // FIXME: isFinished never is never set to be true
+//		while(!isFinished) // FIXME: isFinished never is never set to be true
 		
 		while(temp < 10000)
 		{
@@ -220,7 +223,7 @@ public class Boat {
 		
 		
 		int temp2 = 0;
-		//while(!isFinished)
+//		while(!isFinished)
 		while(temp2 < 10000)
 		{
 			temp2++;
