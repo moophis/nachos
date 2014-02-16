@@ -200,7 +200,6 @@ public class KThread {
 	 */
 	public static void finish() {
 		Lib.debug(dbgThread, "Finishing thread: " + currentThread.toString());
-		System.out.println("Thread finished: " + currentThread().toString());
 
 		Machine.interrupt().disable();
 
