@@ -67,6 +67,8 @@ public class UserProcess {
 		
 		// Initialize children structure
 		children = new HashMap<Integer, UserProcess>();
+		
+		virtualToTransEntry = new HashMap<Integer, TranslationEntry>();
 	}
 	
 	/**
@@ -177,14 +179,46 @@ public class UserProcess {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
 
-		byte[] memory = Machine.processor().getMemory();
-
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
+		byte[] physicalMemory = Machine.processor().getMemory();
+		int amount = 0;
+		
+		if (vaddr < 0)
 			return 0;
+		
+		// virtual memory: [from, to)
+		int fromPage = Processor.pageFromAddress(vaddr);
+		int fromOffset = Processor.offsetFromAddress(vaddr);
+		int toPage = Processor.pageFromAddress(vaddr + length);
+		int toOffset = Processor.offsetFromAddress(vaddr + length);
+		
+//		// for now, just assume that virtual addresses equal physical addresses
+//		if (vaddr < 0 || vaddr >= physicalMemory.length)
+//			return 0;
+//
+//		int amount = Math.min(length, physicalMemory.length - vaddr);
+//		System.arraycopy(physicalMemory, vaddr, data, offset, amount);
+		
+		for (int i = fromPage; i <= toPage; i++) {
+			if (!virtualToTransEntry.containsKey(fromPage)
+					|| !virtualToTransEntry.get(fromPage).valid) {
+				// the current query page is invalid to access
+				break;
+			}
 
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(memory, vaddr, data, offset, amount);
+			int count;
+			if (i == fromPage) {
+				count = Processor.pageSize - fromOffset;
+			} else if (i == toOffset) {
+				count = toOffset;
+			} else {
+				count = Processor.pageSize;
+			}
+			
+			int srcPos = Processor.makeAddress(virtualToTransEntry.get(i).ppn, 0);
+			System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
+			
+			amount += count;
+		}
 
 		return amount;
 	}
@@ -371,7 +405,12 @@ public class UserProcess {
 					new TranslationEntry(++vpn, ppn, true, false, false, false);
 		}
 		
-		UserKernel.fpLock.acquire();
+		// fill up the virtual -> translation entry map
+		for (int i = 0; i < pageTable.length; i++) {
+			virtualToTransEntry.put(pageTable[i].vpn, pageTable[i]);
+		}
+		
+		UserKernel.fpLock.release();
 
 		return true;
 	}
@@ -569,6 +608,9 @@ public class UserProcess {
 	
 	/** Exit status for each child: <Child PID, exit status> */
 	private HashMap<Integer, Integer> exitStatusSet = null;
+	
+	/** A map from virtual memory to Translation entry: <vaddr, TranslationEntry>. */
+	private HashMap<Integer, TranslationEntry> virtualToTransEntry = null;
 	
 	/** Resource lockers */
 	private static Lock pidLock = new Lock();
