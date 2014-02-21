@@ -133,5 +133,5 @@ public class Alarm {
 	private PriorityBlockingQueue<WaitingThread> sleepQueue 
 				= new PriorityBlockingQueue<WaitingThread>(10, new WaitingThreadComparator());
 	
-	private static final char dbgAlarm = 'a';
+	private static final char dbgAlarm = 'A';
 }
