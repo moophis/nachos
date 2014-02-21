@@ -34,11 +34,13 @@ public class UserKernel extends ThreadedKernel {
 		});
 
 		// Initialize the free virtual memory.
+		fpLock.acquire();
 		freePages = new LinkedList<Integer>();
 		int pageNum = Machine.processor().getNumPhysPages();
 		for (int i = 0; i < pageNum; i++) {
 			freePages.add(i);
 		}
+		fpLock.release();
 		
 		// Initialize the PID poll.
 		pidPoll = new HashSet<Integer>();
@@ -140,5 +142,5 @@ public class UserKernel extends ThreadedKernel {
 	public static HashSet<Integer> pidPoll = null;
 	
 	/** Locker for freePages. */
-	private static Lock fpLock = new Lock();
+	public static Lock fpLock = new Lock();
 }

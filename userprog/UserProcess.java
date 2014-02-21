@@ -326,26 +326,52 @@ public class UserProcess {
 	 * @return <tt>true</tt> if the sections were successfully loaded.
 	 */
 	protected boolean loadSections() {
-		if (numPages > Machine.processor().getNumPhysPages()) {
+		UserKernel.fpLock.acquire();
+		
+		// check whether there are enough free pages
+		if (numPages > UserKernel.freePages.size()) {
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
 			return false;
 		}
+		
+		// allocate the page table now
+		int pagesCount = 0;
+		pageTable = new TranslationEntry[numPages];
 
 		// load sections
+		int vpn = -1, ppn = -1;
 		for (int s = 0; s < coff.getNumSections(); s++) {
 			CoffSection section = coff.getSection(s);
+			boolean readOnly = section.isReadOnly();
 
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
 					+ " section (" + section.getLength() + " pages)");
 
 			for (int i = 0; i < section.getLength(); i++) {
-				int vpn = section.getFirstVPN() + i;
+				vpn = section.getFirstVPN() + i;
 
-				// for now, just assume virtual addresses=physical addresses
-				section.loadPage(i, vpn);
+				// now find a free physical page
+				Lib.assertTrue(!UserKernel.freePages.isEmpty());
+				ppn = UserKernel.freePages.pollFirst();
+				section.loadPage(i, ppn);
+				
+				// register this page
+				pageTable[pagesCount++] = 
+						new TranslationEntry(vpn, ppn, true, readOnly, false, false);
 			}
 		}
+		
+		// register remaining pages for stack and arguments (XXX: not sure)
+		Lib.assertTrue(vpn >= 0 && ppn >= 0);
+		while (pagesCount < numPages) {
+			Lib.assertTrue(!UserKernel.freePages.isEmpty());
+			ppn = UserKernel.freePages.pollFirst();
+			pageTable[pagesCount++] =
+					new TranslationEntry(++vpn, ppn, true, false, false, false);
+		}
+		
+		UserKernel.fpLock.acquire();
 
 		return true;
 	}
