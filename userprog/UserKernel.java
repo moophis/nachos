@@ -1,5 +1,8 @@
 package nachos.userprog;
 
+import java.util.HashSet;
+import java.util.LinkedList;
+
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
@@ -29,6 +32,16 @@ public class UserKernel extends ThreadedKernel {
 				exceptionHandler();
 			}
 		});
+
+		// Initialize the free virtual memory.
+		freePages = new LinkedList<Integer>();
+		int pageNum = Machine.processor().getNumPhysPages();
+		for (int i = 0; i < pageNum; i++) {
+			freePages.add(i);
+		}
+		
+		// Initialize the PID poll.
+		pidPoll = new HashSet<Integer>();
 	}
 
 	/**
@@ -113,4 +126,19 @@ public class UserKernel extends ThreadedKernel {
 
 	// dummy variables to make javac smarter
 	private static Coff dummy1 = null;
+	
+	/**
+	 * New added data structures. 
+	 */
+	/** Free physical pages: <physical page number>. */
+	public static LinkedList<Integer> freePages = null;
+	
+	/** 
+	 * PID poll: used to find a free PID number in order to keep it 
+	 * as small as possible 
+	 */
+	public static HashSet<Integer> pidPoll = null;
+	
+	/** Locker for freePages. */
+	private static Lock fpLock = new Lock();
 }

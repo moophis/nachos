@@ -5,6 +5,9 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -23,10 +26,54 @@ public class UserProcess {
 	 * Allocate a new process.
 	 */
 	public UserProcess() {
-		int numPhysPages = Machine.processor().getNumPhysPages();
-		pageTable = new TranslationEntry[numPhysPages];
-		for (int i = 0; i < numPhysPages; i++)
-			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
+		/* We postpone the memory allocation until a binary is loaded. */
+//		int numPhysPages = Machine.processor().getNumPhysPages();
+//		pageTable = new TranslationEntry[numPhysPages];
+//		for (int i = 0; i < numPhysPages; i++)
+//			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
+		
+		// Assign a PID to this process
+		pidLock.acquire();
+		for (int i = 0; ; i++) {
+			if (!UserKernel.pidPoll.contains(i)) {
+				this.pid = i;
+				UserKernel.pidPoll.add(i);
+				break;
+			}
+		}
+		pidLock.release();
+		
+		// Initialize open files
+		openFileLock.acquire();
+		openedFiles = new HashMap<Integer, OpenFile>();
+		// Since process 0 is init process, other process should
+		// inherit the stdin and stdout console file which are created
+		// by the init process.
+		if (pid == 0) {
+			stdin = UserKernel.console.openForReading();
+			stdout = UserKernel.console.openForWriting();
+		} else {
+			this.stdin = parent.stdin;
+			this.stdout = parent.stdout;
+		}
+		openedFiles.put(0, stdin);
+		openedFiles.put(1, stdout);
+		openFileLock.release();
+		
+		// Initialize exit status
+		exitStatusLock.acquire();
+		exitStatusSet = new HashMap<Integer, Integer>();
+		exitStatusLock.release();
+		
+		// Initialize children structure
+		children = new HashMap<Integer, UserProcess>();
+	}
+	
+	/**
+	 * Get the Process ID of current process. 
+	 */
+	public int getPID() {
+		return pid;
 	}
 
 	/**
@@ -307,6 +354,7 @@ public class UserProcess {
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
 	protected void unloadSections() {
+		// TODO
 	}
 
 	/**
@@ -477,4 +525,31 @@ public class UserProcess {
 	private static final int pageSize = Processor.pageSize;
 
 	private static final char dbgProcess = 'a';
+	
+	/**
+	 * New added data structures. 
+	 */
+	/** Process ID */
+	private int pid;
+	
+	/** The parent of the current process. */
+	private UserProcess parent = null;
+	
+	/** The children of the current process: <PID, UserProcess>. */
+	private HashMap<Integer, UserProcess> children = null;
+	
+	/** Opened files: <File descriptor, OpenFile>. */
+	private HashMap<Integer, OpenFile> openedFiles = null;
+	
+	/** Exit status for each child: <Child PID, exit status> */
+	private HashMap<Integer, Integer> exitStatusSet = null;
+	
+	/** Resource lockers */
+	private static Lock pidLock = new Lock();
+	private static Lock openFileLock = new Lock();
+	private static Lock exitStatusLock = new Lock();
+	
+	/** Console file: standard input & standard output */
+	private OpenFile stdin = null;
+	private OpenFile stdout = null;
 }
