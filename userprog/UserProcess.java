@@ -199,8 +199,8 @@ public class UserProcess {
 //		System.arraycopy(physicalMemory, vaddr, data, offset, amount);
 		
 		for (int i = fromPage; i <= toPage; i++) {
-			if (!virtualToTransEntry.containsKey(fromPage)
-					|| !virtualToTransEntry.get(fromPage).valid) {
+			if (!virtualToTransEntry.containsKey(i)
+					|| !virtualToTransEntry.get(i).valid) {
 				// the current query page is invalid to access
 				break;
 			}
@@ -275,9 +275,9 @@ public class UserProcess {
 //		System.arraycopy(data, offset, memory, vaddr, amount);
 		
 		for (int i = fromPage; i <= toPage; i++) {
-			if (!virtualToTransEntry.containsKey(fromPage)
-					|| !virtualToTransEntry.get(fromPage).valid
-					|| virtualToTransEntry.get(fromPage).readOnly) {
+			if (!virtualToTransEntry.containsKey(i)
+					|| !virtualToTransEntry.get(i).valid
+					|| virtualToTransEntry.get(i).readOnly) {
 				// the current query page is invalid to access
 				break;
 			}
