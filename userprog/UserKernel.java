@@ -32,6 +32,8 @@ public class UserKernel extends ThreadedKernel {
 				exceptionHandler();
 			}
 		});
+		
+		fpLock = new Lock();
 
 		// Initialize the free virtual memory.
 		fpLock.acquire();
@@ -142,5 +144,5 @@ public class UserKernel extends ThreadedKernel {
 	public static HashSet<Integer> pidPoll = null;
 	
 	/** Locker for freePages. */
-	public static Lock fpLock = new Lock();
+	public static Lock fpLock;
 }
