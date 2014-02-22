@@ -458,7 +458,17 @@ public class UserProcess {
 	 * Release any resources allocated by <tt>loadSections()</tt>.
 	 */
 	protected void unloadSections() {
-		// TODO
+		UserKernel.fpLock.acquire();
+		
+		// Put back the using physical pages to free list again
+		for (TranslationEntry entry : virtualToTransEntry.values()) {
+			UserKernel.freePages.add(entry.ppn);
+		}
+		
+		virtualToTransEntry = null;
+		pageTable = null;
+		
+		UserKernel.fpLock.release();
 	}
 
 	/**
