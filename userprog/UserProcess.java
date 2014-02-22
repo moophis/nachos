@@ -205,16 +205,19 @@ public class UserProcess {
 				break;
 			}
 
-			int count;
+			int count, off;
 			if (i == fromPage) {
 				count = Processor.pageSize - fromOffset;
+				off = fromOffset;
 			} else if (i == toOffset) {
 				count = toOffset;
+				off = 0;
 			} else {
 				count = Processor.pageSize;
+				off = 0;
 			}
 			
-			int srcPos = Processor.makeAddress(virtualToTransEntry.get(i).ppn, 0);
+			int srcPos = Processor.makeAddress(virtualToTransEntry.get(i).ppn, off);
 			System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 			
 			amount += count;
@@ -253,15 +256,51 @@ public class UserProcess {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
 
-		byte[] memory = Machine.processor().getMemory();
-
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
+		byte[] physicalMemory = Machine.processor().getMemory();
+		int amount = 0;
+		
+		if (vaddr < 0) 
 			return 0;
 
-		int amount = Math.min(length, memory.length - vaddr);
-		System.arraycopy(data, offset, memory, vaddr, amount);
+		// virtual memory: [from, to)
+		int fromPage = Processor.pageFromAddress(vaddr);
+		int fromOffset = Processor.offsetFromAddress(vaddr);
+		int toPage = Processor.pageFromAddress(vaddr + length);
+		int toOffset = Processor.offsetFromAddress(vaddr + length);
 
+//		// for now, just assume that virtual addresses equal physical addresses
+//		if (vaddr < 0 || vaddr >= memory.length)
+//			return 0;
+//		int amount = Math.min(length, memory.length - vaddr);
+//		System.arraycopy(data, offset, memory, vaddr, amount);
+		
+		for (int i = fromPage; i <= toPage; i++) {
+			if (!virtualToTransEntry.containsKey(fromPage)
+					|| !virtualToTransEntry.get(fromPage).valid
+					|| virtualToTransEntry.get(fromPage).readOnly) {
+				// the current query page is invalid to access
+				break;
+			}
+
+			int count, off;
+			if (i == fromPage) {
+				count = Processor.pageSize - fromOffset;
+				off = fromOffset;
+			} else if (i == toOffset) {
+				count = toOffset;
+				off = 0;
+			} else {
+				count = Processor.pageSize;
+				off = 0;
+			}
+			
+			int dstPos = Processor.makeAddress(virtualToTransEntry.get(i).ppn, off);
+			System.arraycopy(data, offset + amount, physicalMemory, dstPos, count);
+			
+			amount += count;
+		}
+
+		
 		return amount;
 	}
 
