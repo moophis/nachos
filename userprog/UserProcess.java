@@ -45,7 +45,6 @@ public class UserProcess {
 		
 		// Initialize open files
 		openFileLock.acquire();
-		openedFiles = new HashMap<Integer, OpenFile>();
 		// Since process 0 is init process, other process should
 		// inherit the stdin and stdout console file which are created
 		// by the init process.
@@ -56,8 +55,8 @@ public class UserProcess {
 			this.stdin = parent.stdin;
 			this.stdout = parent.stdout;
 		}
-		openedFiles.put(0, stdin);
-		openedFiles.put(1, stdout);
+		openedFiles[0] = stdin;
+		openedFiles[1] = stdout;
 		openFileLock.release();
 		
 		// Initialize exit status
@@ -652,8 +651,9 @@ public class UserProcess {
 	/** The children of the current process: <PID, UserProcess>. */
 	private HashMap<Integer, UserProcess> children = null;
 	
-	/** Opened files: <File descriptor, OpenFile>. */
-	private HashMap<Integer, OpenFile> openedFiles = null;
+	/** Opened files. */
+	private final int MAX_FILES = 16;
+	private OpenFile openedFiles[] = new OpenFile[MAX_FILES];
 	
 	/** Exit status for each child: <Child PID, exit status> */
 	private HashMap<Integer, Integer> exitStatusSet = null;
