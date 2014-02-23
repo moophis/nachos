@@ -628,7 +628,7 @@ public class PriorityScheduler extends Scheduler {
 		 * 
 		 * @author liqiangw
 		 */
-		private void donate() {
+		protected void donate() {
 			Lib.assertTrue(currentWait != null);
 			Lib.debug(dbgPS, "   *** -> In donate() of " + this.thread 
 					          + " EP = " + this.getEffectivePriority());
