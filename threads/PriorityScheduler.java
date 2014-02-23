@@ -28,7 +28,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  * particular, priority must be donated through locks, and through joins.
  */
 public class PriorityScheduler extends Scheduler {
-	private static final char dbgPS = 'p';
+	protected static final char dbgPS = 'p';
 	/**
 	 * Allocate a new priority scheduler.
 	 */
@@ -533,7 +533,7 @@ public class PriorityScheduler extends Scheduler {
 		public PriorityBlockingQueue<ThreadState> priorityQueue = null;
 		
 		/** The resource (lock, semaphore, etc.) holder of this wait queue. */
-		private ThreadState resHolder = null;
+		protected ThreadState resHolder = null;
 	}
 
 	/**
