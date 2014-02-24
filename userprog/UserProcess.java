@@ -332,6 +332,7 @@ public class UserProcess {
 		}
 
 		// make sure the sections are contiguous and start at page 0
+		Lib.debug(dbgProcess, "\tBegin parsing each section...");
 		numPages = 0;
 		for (int s = 0; s < coff.getNumSections(); s++) {
 			CoffSection section = coff.getSection(s);
@@ -342,6 +343,7 @@ public class UserProcess {
 			}
 			numPages += section.getLength();
 		}
+		Lib.debug(dbgProcess, "\t--->complete! Section pages: " + numPages);
 
 		// make sure the argv array will fit in one page
 		byte[][] argv = new byte[args.length][];
@@ -359,10 +361,12 @@ public class UserProcess {
 
 		// program counter initially points at the program entry point
 		initialPC = coff.getEntryPoint();
+		Lib.debug(dbgProcess, "\tentry point: " + initialPC);
 
 		// next comes the stack; stack pointer initially points to top of it
 		numPages += stackPages;
 		initialSP = numPages * pageSize;
+		Lib.debug(dbgProcess, "\tstack initial point: " + initialSP);
 
 		// and finally reserve 1 page for arguments
 		numPages++;
@@ -387,6 +391,7 @@ public class UserProcess {
 			stringOffset += 1;
 		}
 
+		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\"): complete!");
 		return true;
 	}
 
@@ -398,6 +403,7 @@ public class UserProcess {
 	 * @return <tt>true</tt> if the sections were successfully loaded.
 	 */
 	protected boolean loadSections() {
+		Lib.debug(dbgProcess, "UserProcess.loadSections");
 		UserKernel.fpLock.acquire();
 		
 		// check whether there are enough free pages
@@ -574,15 +580,33 @@ public class UserProcess {
 		switch (syscall) {
 		case syscallHalt:
 			return handleHalt();
-		case syscallExit:
+		case syscallExit: // XXX: for initial test only!
+//			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
+//			break;
 		case syscallExec:
+//			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
+//			break;
 		case syscallJoin:
+//			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
+//			break;
 		case syscallCreate:
+//			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
+//			break;
 		case syscallOpen:
+//			Lib.debug(dbgProcess, "Handle syscallOpen " + syscall);
+//			break;
 		case syscallRead:
+//			Lib.debug(dbgProcess, "Handle syscallRead " + syscall);
+//			break;
 		case syscallWrite:
+//			Lib.debug(dbgProcess, "Handle syscallWrite " + syscall);
+//			break;
 		case syscallClose:
+//			Lib.debug(dbgProcess, "Handle syscallClose " + syscall);
+//			break;
 		case syscallUnlink:
+//			Lib.debug(dbgProcess, "Handle syscallUnlink " + syscall);
+//			break;
 
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
