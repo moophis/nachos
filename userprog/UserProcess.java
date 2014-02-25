@@ -509,6 +509,251 @@ public class UserProcess {
 		Lib.assertNotReached("Machine.halt() did not halt machine!");
 		return 0;
 	}
+	
+	/**
+	 * Attempt to open the file located at the virtual address.
+	 * Create the file if it does not exist and return the file
+	 * descriptor that can be used to accesss the file.  This can
+	 * only be used to create files on disk; can never return a 
+	 * file descriptor referencing a file stream.
+	 * 
+	 * @param vaddr = The virtual address of the file name
+	 * @return the new file descriptor, or -1 if there was an error
+	 */
+	private int handleCreate(int vaddr) {
+		//Get the file name.
+		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
+		if(fileName != null)
+		{
+			//File name is valid so "create".
+			OpenFile newFile = ThreadedKernel.fileSystem.open(fileName, true);
+			if(newFile != null)
+			{
+				//Find first empty slot in openedFiles, and place file there.
+				int openSlot = 0;
+				while((openedFiles[openSlot] != null) && (openSlot < MAX_FILES))
+				{
+					openSlot++;
+				}
+				if(openSlot != MAX_FILES) 
+				{
+					openedFiles[openSlot] = newFile;
+					return openSlot;
+				}
+			}
+		}
+		return -1;
+	}
+	
+	/**
+	 * Open the file referenced by the virtual address and 
+	 * return the fileDescriptor on success.  This will only
+	 * open files on the disk; it won't open any file streams.
+	 * 
+	 * @param vaddr = The virtual address of the file name
+	 * @return fileDescriptor on success, or -1 if there was an error
+	 */
+	private int handleOpen(int vaddr) {
+		//Get the file name.
+		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
+		if(fileName != null)
+		{
+			//File name is valid so "open".
+			OpenFile newFile = ThreadedKernel.fileSystem.open(fileName, false);
+			if(newFile != null)
+			{
+				//Find first empty slot in openedFiles, and place file there.
+				int openSlot = 0;
+				while((openedFiles[openSlot] != null) && (openSlot < MAX_FILES))
+				{
+					openSlot++;
+				}
+				if(openSlot != MAX_FILES)
+				{
+					openedFiles[openSlot] = newFile;
+					return openSlot;
+				}
+			}
+		}
+		return -1;
+	}
+	
+	/**
+	 * Attempt to read up to 'count' number of bytes into the
+	 * buffer from a file or stream which is referred to by
+	 * the fileDescriptor.  On success, the number of bytes read
+	 * is returned.  If the fileDescriptor referes to a file on 
+	 * disk, file position is advanced by this number.  There is
+	 * not necessarily an error if the th number returned is less
+	 * than the count; if the fileDescriptor is referring to a 
+	 * file on the disk this indicates the read has reached EOF.
+	 * This method never waits for a stream to obtain more data,
+	 * it will read whatever is currently available upon request
+	 * which may also cause the return to be less than count if
+	 * not enough data is ready.
+	 * 
+	 * @param fileDescriptor = reference to file
+	 * @param baddr = the address to the read buffer (read to)
+	 * @param count = number of bytes to (attempt to) read
+	 * @return number of bytes read on success, or -1 if there was an error
+	 */
+	private int handleRead(int fileDescriptor, int baddr, int count) {
+		//Verify valid fileDescriptor and valid count parameters
+		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
+		{
+			return -1;
+		}
+		else
+		{
+			//File is valid so open
+			OpenFile readFile = openedFiles[fileDescriptor];
+			if(readFile == null)
+			{
+				return -1;
+			}
+			else
+			{
+				//This buffer is needed to be read during the OpenFile.read() call.
+				byte[] tempReadBuffer = new byte[count];
+				
+				//read the file
+				int bytesRead =
+					readFile.read(tempReadBuffer, 0, count);
+				if(bytesRead != -1)
+				{
+					return writeVirtualMemory(baddr, tempReadBuffer, 0, bytesRead);
+				}
+				else
+				{
+					//error when trying to read into byte buffer
+					return -1;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Attempt to write up to 'count' bytes from the buffer to
+	 * the file/stream referred to by fileDescriptor.  Write() can
+	 * return before bytes are actually flushed to file or stream.
+	 * A write to a stream can block, if kernel queues are full.
+	 * On success, the number of bytes written is returned and file
+	 * position is advanced by this number.  It is an error if this
+	 * number is smaller than 'count;.  For disk files, this indicates
+	 * that the disk is full.  For streams, this indicates that the
+	 * stream was terminated by some remote host.
+	 * 
+	 * @param fileDescriptor = reference to file
+	 * @param baddr = the address to the buffer (write from)
+	 * @param count = number of bytes to (attempt to) write
+	 * @return number of bytes written on success, or -1 if there was an error
+	 */
+	private int handleWrite(int fileDescriptor, int baddr, int count) {
+		//Verify valid fileDescriptor and valid count parameters
+		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
+		{
+			return -1;
+		}
+		else
+		{
+			//File is valid so open
+			OpenFile writeFile = openedFiles[fileDescriptor];
+			if(writeFile == null)
+			{
+				return -1;
+			}
+			else
+			{
+				byte[] tempWriteBuffer = new byte[count];
+				int bytesFromVirtual = readVirtualMemory(baddr, tempWriteBuffer);
+			
+				if(bytesFromVirtual == count)
+				{
+					int bytesWritten = writeFile.write(tempWriteBuffer, 0, bytesFromVirtual);
+				
+					if(bytesWritten != bytesFromVirtual)
+					{
+						return -1;
+					}
+				}
+				else
+				{
+					return -1;
+				}	
+			}
+			return -1;
+		}
+	}
+	
+	/**
+	 * Close the fileDescriptor so that it no longer refers
+	 * to any file or stream and may be reused.  If the
+	 * fileDescriptor refers to a file, all data written to
+	 * it by write() will be flushed to the disk before close()
+	 * returns.  If it refers to a stream, all data written to it
+	 * by write() will eventually be flushed but not necessarily
+	 * before close() returns.  Resources associated with the
+	 * fileDescriptor are released.  If the fileDescriptor is the
+	 * last reference to disk file whic has been removed using
+	 * handleUnlink() then file is deleted.
+	 * 
+	 * @param fileDescriptor = reference to a file
+	 * @return 0 on success, or -1 if there was an error
+	 */
+	private int handleClose(int fileDescriptor) {
+		//Verify valid fileDescriptor
+		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0))
+		{
+			//fileDescriptor is invalid. Error occured.
+			return -1;
+		}
+		else
+		{
+			//Get the file referenced by fileDescriptor
+			OpenFile openFile = openedFiles[fileDescriptor];
+			
+			//Check if there is actually a file referenced by this location
+			if(openFile == null)
+			{
+				return -1;
+			}
+			else
+			{
+				openFile.close();
+				openedFiles[fileDescriptor] = null;
+			}
+		}
+		return 0;
+	}
+	
+	/**
+	 * If no processes currently have the file open, delete
+	 * it immediately and free the space it was using.
+	 * If any process has the file open currently, the file
+	 * wil remain in existance until the last file descriptor
+	 * referring to it is closed.  Create() and Open() will 
+	 * not be able to return new file descriptors for the file
+	 * it is deleted.
+	 * 
+	 * @param vaddr = The virtual address of the file name
+	 * @return 0 on success, or -1 if there was an error
+	 */
+	private int handleUnlink(int vaddr) {
+		//Get the string file name located at the virtual address
+		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
+		
+		//Call the remove method in the FileSystem stub
+		//It will check to see if the file name is valid
+		//as a part of its processing. Returns false on error.
+		if(!(ThreadedKernel.fileSystem.remove(fileName)))
+		{
+			return -1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
 
 	private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2,
 			syscallJoin = 3, syscallCreate = 4, syscallOpen = 5,
@@ -581,32 +826,32 @@ public class UserProcess {
 		case syscallHalt:
 			return handleHalt();
 		case syscallExit: // XXX: for initial test only!
-//			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
+			break;
 		case syscallExec:
-//			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
+			break;
 		case syscallJoin:
-//			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
+			break;
 		case syscallCreate:
-//			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
+			return handleCreate(a0);
 		case syscallOpen:
-//			Lib.debug(dbgProcess, "Handle syscallOpen " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallOpen " + syscall);
+			return handleOpen(a0);
 		case syscallRead:
-//			Lib.debug(dbgProcess, "Handle syscallRead " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallRead " + syscall);
+			return handleRead(a0, a1, a2);
 		case syscallWrite:
-//			Lib.debug(dbgProcess, "Handle syscallWrite " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallWrite " + syscall);
+			return handleWrite(a0, a1, a2);
 		case syscallClose:
-//			Lib.debug(dbgProcess, "Handle syscallClose " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallClose " + syscall);
+			return handleClose(a0);
 		case syscallUnlink:
-//			Lib.debug(dbgProcess, "Handle syscallUnlink " + syscall);
-//			break;
+			Lib.debug(dbgProcess, "Handle syscallUnlink " + syscall);
+			return handleUnlink(a0);
 
 		default:
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -674,6 +919,9 @@ public class UserProcess {
 	
 	/** The children of the current process: <PID, UserProcess>. */
 	private HashMap<Integer, UserProcess> children = null;
+	
+	/** Maximum file length */
+	private static final int MAX_FILENAME_LEN = 256;
 	
 	/** Opened files. */
 	private final int MAX_FILES = 16;
