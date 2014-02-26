@@ -177,6 +177,8 @@ public class UserProcess {
 	public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
+		Lib.debug(dbgProcess, "In readVirtualMemory: vaddr=" + vaddr + ", byte len="
+				+ data.length + ", beginning offset=" + offset + ", length=" + length);
 
 		byte[] physicalMemory = Machine.processor().getMemory();
 		int amount = 0;
@@ -184,11 +186,13 @@ public class UserProcess {
 		if (vaddr < 0)
 			return 0;
 		
-		// virtual memory: [from, to)
+		// virtual memory: [from, to]
 		int fromPage = Processor.pageFromAddress(vaddr);
 		int fromOffset = Processor.offsetFromAddress(vaddr);
-		int toPage = Processor.pageFromAddress(vaddr + length);
-		int toOffset = Processor.offsetFromAddress(vaddr + length);
+		int toPage = Processor.pageFromAddress(vaddr + length - 1);
+		int toOffset = Processor.offsetFromAddress(vaddr + length - 1);
+		Lib.debug(dbgProcess, "\tVirtualMem Addr from (page " + fromPage + " offset "
+				+ fromOffset + ") to (page " + toPage + " offset " + toOffset + ")");
 		
 //		// for now, just assume that virtual addresses equal physical addresses
 //		if (vaddr < 0 || vaddr >= physicalMemory.length)
@@ -198,18 +202,20 @@ public class UserProcess {
 //		System.arraycopy(physicalMemory, vaddr, data, offset, amount);
 		
 		for (int i = fromPage; i <= toPage; i++) {
+			Lib.debug(dbgProcess, "\t** In page " + i);
 			if (!virtualToTransEntry.containsKey(i)
 					|| !virtualToTransEntry.get(i).valid) {
 				// the current query page is invalid to access
+				Lib.debug(dbgProcess, "\t Page invalid or not exist for this process");
 				break;
 			}
 
 			int count, off;
 			if (i == fromPage) {
-				count = Processor.pageSize - fromOffset;
+				count = Math.min(Processor.pageSize - fromOffset, length);
 				off = fromOffset;
 			} else if (i == toOffset) {
-				count = toOffset;
+				count = toOffset + 1; // read [0, toOffset] from the last page
 				off = 0;
 			} else {
 				count = Processor.pageSize;
@@ -217,6 +223,9 @@ public class UserProcess {
 			}
 			
 			int srcPos = Processor.makeAddress(virtualToTransEntry.get(i).ppn, off);
+			
+			Lib.debug(dbgProcess, "\t *PhyMem Addr=" + srcPos + " data index=" + (offset + amount) 
+					+ " count=" + count);
 			System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 			
 			amount += count;
@@ -264,8 +273,8 @@ public class UserProcess {
 		// virtual memory: [from, to)
 		int fromPage = Processor.pageFromAddress(vaddr);
 		int fromOffset = Processor.offsetFromAddress(vaddr);
-		int toPage = Processor.pageFromAddress(vaddr + length);
-		int toOffset = Processor.offsetFromAddress(vaddr + length);
+		int toPage = Processor.pageFromAddress(vaddr + length - 1);
+		int toOffset = Processor.offsetFromAddress(vaddr + length - 1);
 
 //		// for now, just assume that virtual addresses equal physical addresses
 //		if (vaddr < 0 || vaddr >= memory.length)
@@ -283,10 +292,10 @@ public class UserProcess {
 
 			int count, off;
 			if (i == fromPage) {
-				count = Processor.pageSize - fromOffset;
+				count = Math.min(Processor.pageSize - fromOffset, length);
 				off = fromOffset;
 			} else if (i == toOffset) {
-				count = toOffset;
+				count = toOffset + 1;
 				off = 0;
 			} else {
 				count = Processor.pageSize;
