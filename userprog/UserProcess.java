@@ -36,13 +36,14 @@ public class UserProcess {
 		
 		// Assign a PID to this process
 		pidLock.acquire();
-		for (int i = 0; ; i++) {
-			if (!UserKernel.pidPoll.contains(i)) {
-				this.pid = i;
-				UserKernel.pidPoll.add(i);
-				break;
-			}
-		}
+//		for (int i = 0; ; i++) {
+//			if (!UserKernel.pidPoll.contains(i)) {
+//				this.pid = i;
+//				UserKernel.pidPoll.add(i);
+//				break;
+//			}
+//		}
+		this.pid = pidAccumulated++;
 		pidLock.release();
 		
 		// Initialize open files
@@ -53,10 +54,7 @@ public class UserProcess {
 		if (pid == 0) {
 			stdin = UserKernel.console.openForReading();
 			stdout = UserKernel.console.openForWriting();
-		} else {
-			this.stdin = parent.stdin;
-			this.stdout = parent.stdout;
-		}
+		} 
 		openedFiles[0] = stdin;
 		openedFiles[1] = stdout;
 		openFileLock.release();
@@ -68,8 +66,27 @@ public class UserProcess {
 		
 		// Initialize children structure
 		children = new HashMap<Integer, UserProcess>();
+		endedchildren = new HashMap<Integer, Integer>();
 		
 		virtualToTransEntry = new HashMap<Integer, TranslationEntry>();
+		
+		System.out.println("## A process has been created, pid = " + pid);
+	}
+	
+	/**
+	 * Set the parent of the current process and inherent shared
+	 * resources.
+	 */
+	public void setParent(UserProcess parent) {
+		this.parent = parent;
+		
+		// set shared opened files
+		openFileLock.acquire();
+		this.stdin = parent.stdin;
+		this.stdout = parent.stdout;
+		openedFiles[0] = stdin;
+		openedFiles[1] = stdout;
+		openFileLock.release();
 	}
 	
 	/**
@@ -483,6 +500,7 @@ public class UserProcess {
 		
 		virtualToTransEntry = null;
 		pageTable = null;
+		children = null;
 		
 		UserKernel.fpLock.release();
 	}
@@ -807,15 +825,13 @@ public class UserProcess {
         	args[i] = readVirtualMemoryString(Vaddrc, VtoSmaxLength);
         	Vaddrc= Vaddrc + 4;
         }
-		UserProcess Child = new UserProcess();
-		
-		Child.parent = this;
-		//int childnum=this.children.size()+1;
-		//Child.pid=childnum;
-		this.children.put(Child.getPID(), Child);
-		boolean successexec = Child.execute(Stringfile, args);
+        
+		UserProcess child = new UserProcess();
+		child.setParent(this);  // set it parent (new function)
+		this.children.put(child.getPID(), child);
+		boolean successexec = child.execute(Stringfile, args);
 		if (successexec) {
-			return Child.getPID();
+			return child.getPID();
 		} else {
 			return -1;
 		}
@@ -840,9 +856,12 @@ public class UserProcess {
 	 * process of the current process, returns -1.
 	 */
 	private int handleJoin(int joinpid, int statuspointer) {
+		System.out.println("In handleJoin, joinpid=" + joinpid);
 		joinLock.acquire();
 		if (!children.containsKey(joinpid)) {
 			joinLock.release();
+			System.out.println("In handleJoin, joinpid = " + joinpid + 
+					": child not matched");
 			return -1;
 		} else {
 			if (endedchildren.containsKey(joinpid)) {
@@ -853,14 +872,18 @@ public class UserProcess {
 				waittojoin.sleep();
 			}	
 		}
-		writeVirtualMemory(statuspointer,Lib.bytesFromInt(endedchildren.get(joinpid)));
+		writeVirtualMemory(statuspointer, Lib.bytesFromInt(endedchildren.get(joinpid)));
 		if (endedchildren.get(joinpid) == 0) {
 			endedchildren.remove(joinpid);
 			joinLock.release();
+			System.out.println("In handleJoin, joinpid = " + joinpid + 
+					": child exited normally");
 			return 1;
 		} else {
 			endedchildren.remove(joinpid);
 			joinLock.release();
+			System.out.println("In handleJoin, joinpid = " + joinpid + 
+					": child exited exited as unhandled exception");
 			return 0;
 		}
 	}
@@ -879,6 +902,7 @@ public class UserProcess {
 	 */
 	
 	private void handleExit(int status) {
+		System.out.println("In handleExit(" + status + ")");
 		int localstatus = status;
 		for (int i = 0; i < MAX_FILES; i++) {
 			if(openedFiles[i] != null) {
@@ -888,20 +912,23 @@ public class UserProcess {
 				}
 			}
 		}
+		System.out.println("\tOpened files closed");
 		Collection<UserProcess> coll = children.values();
 		List<UserProcess> exitchildren = new ArrayList<UserProcess>(coll);
 		for(int m = 0; m < exitchildren.size(); m++) {
-			exitchildren.get(m).parent = null;
+			exitchildren.get(m).parent = null; // problematic
 		}
+		System.out.println("\tChildren's parent reset");
 		if (parent != null) {
-			parent.joinLock.acquire();
+			joinLock.acquire();
 			parent.endedchildren.put(this.getPID(), localstatus);
 			if (parent.waitjoinpid == this.getPID()) {
-				parent.waittojoin.wake();
+				waittojoin.wake();
 			}
-			parent.joinLock.release();
+			joinLock.release();
 		}
 		unloadSections();	
+		System.out.println("\tProcess memory deallocated, leaving handleExit()");
 	}
 	
 
@@ -976,32 +1003,32 @@ public class UserProcess {
 		case syscallHalt:
 			return handleHalt();
 		case syscallExit: // XXX: for initial test only!
-			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
 			handleExit(a0);
 			break;
 		case syscallExec:
-			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
 			return handleExec(a0, a1, a2);
 		case syscallJoin:
-			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
 			return handleJoin(a0, a1);
 		case syscallCreate:
-			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
 			return handleCreate(a0);
 		case syscallOpen:
-			Lib.debug(dbgProcess, "Handle syscallOpen " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallOpen " + syscall);
 			return handleOpen(a0);
 		case syscallRead:
-			Lib.debug(dbgProcess, "Handle syscallRead " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallRead " + syscall);
 			return handleRead(a0, a1, a2);
 		case syscallWrite:
-			Lib.debug(dbgProcess, "Handle syscallWrite " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallWrite " + syscall);
 			return handleWrite(a0, a1, a2);
 		case syscallClose:
-			Lib.debug(dbgProcess, "Handle syscallClose " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallClose " + syscall);
 			return handleClose(a0);
 		case syscallUnlink:
-			Lib.debug(dbgProcess, "Handle syscallUnlink " + syscall);
+//			Lib.debug(dbgProcess, "Handle syscallUnlink " + syscall);
 			return handleUnlink(a0);
 
 		default:
@@ -1069,13 +1096,16 @@ public class UserProcess {
 	
 	private int VtoSmaxLength = 256;
 	
+	/** Accumulated PID */
+	private static int pidAccumulated = 0;
+	
 	/** The parent of the current process. */
 	private UserProcess parent = null;
 	
 	/** The children of the current process: <PID, UserProcess>. */
 	private HashMap<Integer, UserProcess> children = null;
 	
-	private HashMap<Integer, Integer> endedchildren = null;
+	public HashMap<Integer, Integer> endedchildren = null;
 	
 	/** Maximum file length */
 	private static final int MAX_FILENAME_LEN = 256;
