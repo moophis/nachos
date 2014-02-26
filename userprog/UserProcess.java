@@ -6,8 +6,10 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -214,7 +216,7 @@ public class UserProcess {
 			if (i == fromPage) {
 				count = Math.min(Processor.pageSize - fromOffset, length);
 				off = fromOffset;
-			} else if (i == toOffset) {
+			} else if (i == toPage) {
 				count = toOffset + 1; // read [0, toOffset] from the last page
 				off = 0;
 			} else {
@@ -294,7 +296,7 @@ public class UserProcess {
 			if (i == fromPage) {
 				count = Math.min(Processor.pageSize - fromOffset, length);
 				off = fromOffset;
-			} else if (i == toOffset) {
+			} else if (i == toPage) {
 				count = toOffset + 1;
 				off = 0;
 			} else {
@@ -763,6 +765,145 @@ public class UserProcess {
 			return 0;
 		}
 	}
+	
+	/**    
+	 * int exec(char *file, int argc, char *argv[]);
+	 * Execute the program stored in the specified file, with the specified
+	 * arguments, in a new child process. The child process has a new unique
+	 * process ID, and starts with stdin opened as file descriptor 0, and stdout
+	 * opened as file descriptor 1.
+	 *
+	 * file is a null-terminated string that specifies the name of the file
+	 * containing the executable. Note that this string must include the ".coff"
+	 * extension.
+	 *
+	 * argc specifies the number of arguments to pass to the child process. This
+	 * number must be non-negative.
+	 *
+	 * argv is an array of pointers to null-terminated strings that represent the
+	 * arguments to pass to the child process. argv[0] points to the first
+	 * argument, and argv[argc-1] points to the last argument.
+	 *
+	 * exec() returns the child process's process ID, which can be passed to
+	 * join(). On error, returns -1.
+	 * 
+	 */
+	private int handleExec(int vaddr1, int argnum, int vaddrc) {
+		String Stringfile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
+		if(Stringfile == null || !Stringfile.endsWith(".coff")) {
+			return -1;
+		}
+		String[] args = new String[argnum];
+        for(int i = 0; i < argnum; i++) {
+        	byte[] readbyte = new byte[4];
+        	int readcount = 0;
+        	int argaddr;
+        	int Vaddrc = vaddrc;
+        	readcount = readVirtualMemory(vaddrc,readbyte);
+        	if (readcount == 0) {
+        		return -1;
+        	}
+        	argaddr = Lib.bytesToInt(readbyte,0);
+        	args[i] = readVirtualMemoryString(Vaddrc, VtoSmaxLength);
+        	Vaddrc= Vaddrc + 4;
+        }
+		UserProcess Child = new UserProcess();
+		
+		Child.parent = this;
+		//int childnum=this.children.size()+1;
+		//Child.pid=childnum;
+		this.children.put(Child.getPID(), Child);
+		boolean successexec = Child.execute(Stringfile, args);
+		if (successexec) {
+			return Child.getPID();
+		} else {
+			return -1;
+		}
+	}
+	
+	/**    
+	 * int join(int processID, int *status);
+	 * Suspend execution of the current process until the child process specified
+	 * by the processID argument has exited. If the child has already exited by the
+	 * time of the call, returns immediately. When the current process resumes, it
+	 * disowns the child process, so that join() cannot be used on that process
+	 * again.
+	 *
+	 * processID is the process ID of the child process, returned by exec().
+	 *
+	 * status points to an integer where the exit status of the child process will
+	 * be stored. This is the value the child passed to exit(). If the child exited
+	 * because of an unhandled exception, the value stored is not defined.
+	 *
+	 * If the child exited normally, returns 1. If the child exited as a result of
+	 * an unhandled exception, returns 0. If processID does not refer to a child
+	 * process of the current process, returns -1.
+	 */
+	private int handleJoin(int joinpid, int statuspointer) {
+		joinLock.acquire();
+		if (!children.containsKey(joinpid)) {
+			joinLock.release();
+			return -1;
+		} else {
+			if (endedchildren.containsKey(joinpid)) {
+				children.remove(joinpid);
+				//endedchildren.remove(joinpid);
+			} else if (!endedchildren.containsKey(joinpid)) {
+				waitjoinpid=joinpid;
+				waittojoin.sleep();
+			}	
+		}
+		writeVirtualMemory(statuspointer,Lib.bytesFromInt(endedchildren.get(joinpid)));
+		if (endedchildren.get(joinpid) == 0) {
+			endedchildren.remove(joinpid);
+			joinLock.release();
+			return 1;
+		} else {
+			endedchildren.remove(joinpid);
+			joinLock.release();
+			return 0;
+		}
+	}
+	
+	/**   
+	 * void exit(int status);
+	 * Terminate the current process immediately. Any open file descriptors
+	 * belonging to the process are closed. Any children of the process no longer
+	 * have a parent process.
+	 *
+	 * status is returned to the parent process as this process's exit status and
+	 * can be collected using the join syscall. A process exiting normally should
+	 * (but is not required to) set status to 0.
+	 *
+	 * exit() never returns.
+	 */
+	
+	private void handleExit(int status) {
+		int localstatus = status;
+		for (int i = 0; i < MAX_FILES; i++) {
+			if(openedFiles[i] != null) {
+				int succlose = handleClose(i);
+				if (succlose != 0) {
+					localstatus = 1;
+				}
+			}
+		}
+		Collection<UserProcess> coll = children.values();
+		List<UserProcess> exitchildren = new ArrayList<UserProcess>(coll);
+		for(int m = 0; m < exitchildren.size(); m++) {
+			exitchildren.get(m).parent = null;
+		}
+		if (parent != null) {
+			parent.joinLock.acquire();
+			parent.endedchildren.put(this.getPID(), localstatus);
+			if (parent.waitjoinpid == this.getPID()) {
+				parent.waittojoin.wake();
+			}
+			parent.joinLock.release();
+		}
+		unloadSections();	
+	}
+	
 
 	private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2,
 			syscallJoin = 3, syscallCreate = 4, syscallOpen = 5,
@@ -836,13 +977,14 @@ public class UserProcess {
 			return handleHalt();
 		case syscallExit: // XXX: for initial test only!
 			Lib.debug(dbgProcess, "Handle syscallExit " + syscall);
+			handleExit(a0);
 			break;
 		case syscallExec:
 			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
-			break;
+			return handleExec(a0, a1, a2);
 		case syscallJoin:
 			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
-			break;
+			return handleJoin(a0, a1);
 		case syscallCreate:
 			Lib.debug(dbgProcess, "Handle syscallCreate " + syscall);
 			return handleCreate(a0);
@@ -923,11 +1065,17 @@ public class UserProcess {
 	/** Process ID */
 	private int pid;
 	
+	private int waitjoinpid;
+	
+	private int VtoSmaxLength = 256;
+	
 	/** The parent of the current process. */
 	private UserProcess parent = null;
 	
 	/** The children of the current process: <PID, UserProcess>. */
 	private HashMap<Integer, UserProcess> children = null;
+	
+	private HashMap<Integer, Integer> endedchildren = null;
 	
 	/** Maximum file length */
 	private static final int MAX_FILENAME_LEN = 256;
@@ -946,6 +1094,8 @@ public class UserProcess {
 	private static Lock pidLock = new Lock();
 	private static Lock openFileLock = new Lock();
 	private static Lock exitStatusLock = new Lock();
+	private static Lock joinLock = new Lock();
+	private static Condition waittojoin = new Condition(joinLock);
 	
 	/** Console file: standard input & standard output */
 	private OpenFile stdin = null;
