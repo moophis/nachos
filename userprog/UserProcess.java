@@ -470,6 +470,7 @@ public class UserProcess {
 		
 		// register remaining pages for stack and arguments (XXX: not sure)
 		Lib.assertTrue(vpn >= 0 && ppn >= 0);
+		Lib.debug(dbgProcess, "\tStill has " + (numPages - pagesCount) + " pages");
 		while (pagesCount < numPages) {
 			Lib.assertTrue(!UserKernel.freePages.isEmpty());
 			ppn = UserKernel.freePages.pollFirst();
@@ -627,6 +628,8 @@ public class UserProcess {
 	 * @return number of bytes read on success, or -1 if there was an error
 	 */
 	private int handleRead(int fileDescriptor, int baddr, int count) {
+//		System.out.println("In handleRead(): fd = " + fileDescriptor + 
+//				 " read buf @" + baddr + " count = " + count);
 		//Verify valid fileDescriptor and valid count parameters
 		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
 		{
@@ -678,6 +681,8 @@ public class UserProcess {
 	 * @return number of bytes written on success, or -1 if there was an error
 	 */
 	private int handleWrite(int fileDescriptor, int baddr, int count) {
+		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
+				+ " buf addr = " + baddr + " count = " + count);
 		//Verify valid fileDescriptor and valid count parameters
 		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
 		{
@@ -704,13 +709,13 @@ public class UserProcess {
 					{
 						return -1;
 					}
+					return bytesWritten;
 				}
 				else
 				{
 					return -1;
 				}	
 			}
-			return -1;
 		}
 	}
 	
@@ -817,7 +822,7 @@ public class UserProcess {
         	int readcount = 0;
         	int argaddr;
         	int Vaddrc = vaddrc;
-        	readcount = readVirtualMemory(vaddrc,readbyte);
+        	readcount = readVirtualMemory(vaddrc, readbyte);
         	if (readcount == 0) {
         		return -1;
         	}
