@@ -30,12 +30,6 @@ public class UserProcess {
 	 */
 	public UserProcess() {
 		/* We postpone the memory allocation until a binary is loaded. */
-//		int numPhysPages = Machine.processor().getNumPhysPages();
-//		pageTable = new TranslationEntry[numPhysPages];
-//		for (int i = 0; i < numPhysPages; i++)
-//			pageTable[i] = new TranslationEntry(i, i, true, false, false, false);
-		
-		// Assign a PID to this process
 		pidLock.acquire();
 //		for (int i = 0; ; i++) {
 //			if (!UserKernel.pidPoll.contains(i)) {
@@ -45,6 +39,9 @@ public class UserProcess {
 //			}
 //		}
 		this.pid = pidAccumulated++;
+		
+		Lib.assertTrue(totalProcess >= 0);
+		totalProcess++;
 		pidLock.release();
 		
 		// Initialize open files
@@ -60,14 +57,9 @@ public class UserProcess {
 		} 
 		openFileLock.release();
 		
-		// Initialize exit status
-		exitStatusLock.acquire();
-		exitStatusSet = new HashMap<Integer, Integer>();
-		exitStatusLock.release();
-		
 		// Initialize children structure
 		children = new HashMap<Integer, UserProcess>();
-		endedchildren = new HashMap<Integer, Integer>();
+		endedChildren = new HashMap<Integer, Integer>();
 		
 		virtualToTransEntry = new HashMap<Integer, TranslationEntry>();
 		
@@ -101,6 +93,13 @@ public class UserProcess {
 		return pid;
 	}
 	
+	/**
+	 * Get the UThread corresponding to the current process.
+	 */
+	public UThread getThread() {
+		return thread;
+	}
+	
 	@Override
 	public String toString() {
 		return "Process: pid = " + getPID();
@@ -129,7 +128,8 @@ public class UserProcess {
 		if (!load(name, args))
 			return false;
 
-		new UThread(this).setName(name).fork();
+		thread = new UThread(this);
+		thread.setName(name).fork();
 
 		return true;
 	}
@@ -518,12 +518,6 @@ public class UserProcess {
 			UserKernel.freePages.add(entry.ppn);
 		}
 		
-		virtualToTransEntry = null;
-		pageTable = null;
-		children = null;
-		
-		coff.close();
-		
 		UserKernel.fpLock.release();
 	}
 
@@ -833,7 +827,6 @@ public class UserProcess {
 	 * 
 	 */
 	private int handleExec(int vaddr1, int argnum, int vaddrc) {
-//		vaddrc += 128; // XXX: tricky one, do not know why
 		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
 		if (stringFile == null || !stringFile.endsWith(".coff")) {
@@ -855,17 +848,7 @@ public class UserProcess {
         	
         	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
         }
-		
-//        String argPage = readVirtualMemoryString(vaddrc, pageSize);
-//        String[] args = argPage.split(" ");
-//        
-//        Lib.debug(dbgProcess, "\tArgs page: " + argPage);
-//        Lib.debug(dbgProcess, "\tArgs:");
-//        for (String s : args) {
-//        	Lib.debug(dbgProcess, "\t" + s);
-//        }
-		
-//		UserProcess child = new UserProcess();
+        
 		UserProcess child = UserProcess.newUserProcess();
 		child.setParent(this);  // set it parent (new function)
 		this.children.put(child.getPID(), child);
@@ -895,61 +878,64 @@ public class UserProcess {
 	 * an unhandled exception, returns 0. If processID does not refer to a child
 	 * process of the current process, returns -1.
 	 */
-	private int handleJoin(int joinpid, int statuspointer) {
+	private int handleJoin(int joinpid, int statusPtr) {
 		Lib.debug(dbgProcess, "## In handleJoin (current pid = " +
 				getPID() + ", joinpid = " + joinpid + " status p = "
-				+ statuspointer);
-		joinLock.acquire();
+				+ statusPtr);
+		UserProcess child = null;
 		
 		// should not wait itself!
 		if (joinpid == getPID()) {
-			joinLock.release();
 			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
-					+ "))You cannot wait yourself!");
+					+ ")) You cannot wait yourself!");
 			return -1;
 		}
 		
 		if (children == null || children.size() == 0) {
-			joinLock.release();
 			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
-					+ "))No children to wait");
+					+ ")) No children to wait");
 			return -1;
 		}
+		
 		if (!children.containsKey(joinpid)) {
-			joinLock.release();
 			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
-					+ "))joinpid = " + joinpid + ": child not matched");
+					+ ")) joinpid = " + joinpid + ": child not matched");
 			return -1;
-		} else {
-			if (endedchildren.containsKey(joinpid)) {
+		} else {	// process to be waited is a valid child
+			child = children.get(joinpid);
+			joinLock.acquire();
+			if (endedChildren.containsKey(joinpid)) {
+				joinLock.release();
 				children.remove(joinpid);
-				//endedchildren.remove(joinpid);
-			} else if (!endedchildren.containsKey(joinpid)) {
-				waitjoinpid = joinpid;
-				waittojoin.sleep();
+			} else {
+				joinLock.release();
+				child.getThread().join();	// wait here!
 			}	
 		}
 		
 		Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID() + 
 				"))List endedchildren");
-		for (Integer i : endedchildren.keySet()) {
-			Lib.debug(dbgProcess, "\t# pid = " + i + ", status = " + endedchildren.get(i));
+		for (Integer i : endedChildren.keySet()) {
+			Lib.debug(dbgProcess, "\t# pid = " + i + ", status = " + endedChildren.get(i));
 		}
-		if (endedchildren.get(joinpid) == null) {
+		if (endedChildren.get(joinpid) == null) {
 			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID() 
 					+ "))Cannot find joinpid = " + joinpid 
 					+ " from endedchildren list of current pid = " + getPID());
 			return -1;
 		}
-		writeVirtualMemory(statuspointer, Lib.bytesFromInt(endedchildren.get(joinpid)));
-		if (endedchildren.get(joinpid) == 0) {
-			endedchildren.remove(joinpid);
+		
+		writeVirtualMemory(statusPtr, Lib.bytesFromInt(endedChildren.get(joinpid)));
+		
+		joinLock.acquire();
+		if (endedChildren.get(joinpid) == 0) {
+			endedChildren.remove(joinpid);
 			joinLock.release();
 			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
 					" current pid = " + getPID() + ": child exited normally");
 			return 1;
 		} else {
-			endedchildren.remove(joinpid);
+			endedChildren.remove(joinpid);
 			joinLock.release();
 			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
 					" current pid = " + getPID() + ": child exited with unhandled exception");
@@ -973,22 +959,23 @@ public class UserProcess {
 		Lib.debug(dbgProcess, "In handleExit(" + status + "), curPID = " + getPID());
 		
 		// when process 0 tries to exit, halt the machine...
-		if (this.getPID() == 0) {
-//			UserProcess process = UserProcess.newUserProcess();
-//			Lib.assertTrue(process.execute("halt.coff", new String[] {}));
-//			KThread.finish();
+		Lib.assertTrue(totalProcess > 0);
+		// the last process in the OS
+		if (--totalProcess == 0) {
 			Kernel.kernel.terminate();
 		}
 		
-		int localstatus = status;
+		int localStatus = status;
 		for (int i = 2; i < MAX_FILES; i++) { // do not close stdin and stdout
 			if(openedFiles[i] != null) {
 				int succlose = handleClose(i);
 				if (succlose != 0) {
-					localstatus = 1;
+					localStatus = 1;
 				}
 			}
 		}
+		
+		// unlink the running children with the current process
 		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
 				+ "))Opened files closed");
 		Collection<UserProcess> coll = children.values();
@@ -997,25 +984,32 @@ public class UserProcess {
 			exitchildren.get(m).parent = null; // problematic
 		}
 		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
-				+ "))Children's parent reset");
+				+ ")) Children's parent reset");
+		
+		// find out whether we have parent to notify
 		if (parent != null) {
 			joinLock.acquire();
-			parent.endedchildren.put(this.getPID(), localstatus);
-			if (parent.waitjoinpid == this.getPID()) {
-				Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() +
-						"))Put status into endedchildren of " + parent + ": pid = "
-						+ this.getPID() + " status = " + parent.endedchildren.get(this.getPID()));
-				waittojoin.wake();
-			}
+			parent.endedChildren.put(this.getPID(), localStatus);
 			joinLock.release();
+			
+			Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() +
+					")) Put status into endedChildren of " + parent + ": pid = "
+					+ this.getPID() + " status = " + parent.endedChildren.get(this.getPID()));
 		}
-		unloadSections();	
+		
+		// unregister all resources
+		unloadSections();
+		virtualToTransEntry = null;
+		pageTable = null;
+		children = null;
+		coff.close();
+
 		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
-				+ "))Process memory deallocated, leaving handleExit()");
+				+ ")) Process memory deallocated, leaving handleExit()");
 		UThread.finish();
 	}
 	
-
+	// backup
 	private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2,
 			syscallJoin = 3, syscallCreate = 4, syscallOpen = 5,
 			syscallRead = 6, syscallWrite = 7, syscallClose = 8,
@@ -1187,6 +1181,9 @@ public class UserProcess {
 	/**
 	 * New added data structures. 
 	 */
+	/** Total number of running processes. */
+	private static int totalProcess = 0;
+	
 	/** Process ID */
 	private int pid;
 	
@@ -1197,13 +1194,17 @@ public class UserProcess {
 	/** Accumulated PID */
 	private static int pidAccumulated = 0;
 	
+	/** The underlying UThread corresponding to the process */
+	private UThread thread = null;
+	
 	/** The parent of the current process. */
 	private UserProcess parent = null;
 	
 	/** The children of the current process: <PID, UserProcess>. */
 	private HashMap<Integer, UserProcess> children = null;
 	
-	public HashMap<Integer, Integer> endedchildren = null;
+	/** Exit status for each child: <Child PID, exit status> */
+	public HashMap<Integer, Integer> endedChildren = null;
 	
 	/** Maximum file length */
 	private static final int MAX_FILENAME_LEN = 256;
@@ -1212,18 +1213,13 @@ public class UserProcess {
 	private final int MAX_FILES = 16;
 	private OpenFile openedFiles[] = new OpenFile[MAX_FILES];
 	
-	/** Exit status for each child: <Child PID, exit status> */
-	private HashMap<Integer, Integer> exitStatusSet = null;
-	
 	/** A map from virtual memory to Translation entry: <vaddr, TranslationEntry>. */
 	private HashMap<Integer, TranslationEntry> virtualToTransEntry = null;
 	
 	/** Resource lockers */
 	private static Lock pidLock = new Lock();
 	private static Lock openFileLock = new Lock();
-	private static Lock exitStatusLock = new Lock();
 	private static Lock joinLock = new Lock();
-	private static Condition waittojoin = new Condition(joinLock);
 	
 	/** Console file: standard input & standard output */
 	private OpenFile stdin = null;
