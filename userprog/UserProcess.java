@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,9 +55,9 @@ public class UserProcess {
 		if (pid == 0) {
 			stdin = UserKernel.console.openForReading();
 			stdout = UserKernel.console.openForWriting();
+			openedFiles[0] = stdin;
+			openedFiles[1] = stdout;
 		} 
-		openedFiles[0] = stdin;
-		openedFiles[1] = stdout;
 		openFileLock.release();
 		
 		// Initialize exit status
@@ -70,7 +71,7 @@ public class UserProcess {
 		
 		virtualToTransEntry = new HashMap<Integer, TranslationEntry>();
 		
-		System.out.println("## A process has been created, pid = " + pid);
+		System.out.println("*** A process has been created, pid = " + pid);
 	}
 	
 	/**
@@ -79,6 +80,10 @@ public class UserProcess {
 	 */
 	public void setParent(UserProcess parent) {
 		this.parent = parent;
+		
+		parent.children.put(this.getPID(), this);
+		Lib.debug(dbgProcess, "parent (pid = " + parent.getPID() 
+				+ ") gets a child (pid = " + parent.children.get(this.getPID())+ ")");
 		
 		// set shared opened files
 		openFileLock.acquire();
@@ -94,6 +99,11 @@ public class UserProcess {
 	 */
 	public int getPID() {
 		return pid;
+	}
+	
+	@Override
+	public String toString() {
+		return "Process: pid = " + getPID();
 	}
 
 	/**
@@ -197,7 +207,8 @@ public class UserProcess {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
 		Lib.debug(dbgProcess, "In readVirtualMemory: vaddr=" + vaddr + ", byte len="
-				+ data.length + ", beginning offset=" + offset + ", length=" + length);
+				+ data.length + ", beginning offset=" + offset + ", length=" + length
+				+ " current pid = " + getPID());
 
 		byte[] physicalMemory = Machine.processor().getMemory();
 		int amount = 0;
@@ -282,6 +293,9 @@ public class UserProcess {
 	public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
+//		Lib.debug(dbgProcess, "In writeVirtualMemory: vaddr=" + vaddr + ", byte len="
+//				+ data.length + ", beginning offset=" + offset + ", length=" + length
+//				+ " current pid = " + getPID());
 
 		byte[] physicalMemory = Machine.processor().getMemory();
 		int amount = 0;
@@ -404,6 +418,7 @@ public class UserProcess {
 
 		// store arguments in last page
 		int entryOffset = (numPages - 1) * pageSize;
+		Lib.debug(dbgProcess, "entryOffset = " + entryOffset);
 		int stringOffset = entryOffset + args.length * 4;
 
 		this.argc = args.length;
@@ -432,12 +447,15 @@ public class UserProcess {
 	 */
 	protected boolean loadSections() {
 		Lib.debug(dbgProcess, "UserProcess.loadSections");
+		Lib.debug(dbgProcess, "\tNeed " + numPages + " pages, free pages #: " 
+					+ UserKernel.freePages.size());
 		UserKernel.fpLock.acquire();
 		
 		// check whether there are enough free pages
 		if (numPages > UserKernel.freePages.size()) {
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
+			UserKernel.fpLock.release();
 			return false;
 		}
 		
@@ -681,8 +699,8 @@ public class UserProcess {
 	 * @return number of bytes written on success, or -1 if there was an error
 	 */
 	private int handleWrite(int fileDescriptor, int baddr, int count) {
-		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
-				+ " buf addr = " + baddr + " count = " + count);
+//		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
+//				+ " buf addr = " + baddr + " count = " + count);
 		//Verify valid fileDescriptor and valid count parameters
 		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
 		{
@@ -812,29 +830,45 @@ public class UserProcess {
 	 * 
 	 */
 	private int handleExec(int vaddr1, int argnum, int vaddrc) {
-		String Stringfile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
-		if(Stringfile == null || !Stringfile.endsWith(".coff")) {
+		vaddrc += 128;
+		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + "argv addr: " + vaddrc);
+		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
+		if (stringFile == null || !stringFile.endsWith(".coff")) {
 			return -1;
 		}
-		String[] args = new String[argnum];
-        for(int i = 0; i < argnum; i++) {
-        	byte[] readbyte = new byte[4];
-        	int readcount = 0;
-        	int argaddr;
-        	int Vaddrc = vaddrc;
-        	readcount = readVirtualMemory(vaddrc, readbyte);
-        	if (readcount == 0) {
-        		return -1;
-        	}
-        	argaddr = Lib.bytesToInt(readbyte,0);
-        	args[i] = readVirtualMemoryString(Vaddrc, VtoSmaxLength);
-        	Vaddrc= Vaddrc + 4;
-        }
+		Lib.debug(dbgProcess, "\tProgram name: " + stringFile);
+		
+//		String[] args = new String[argnum];
+//        for (int i = 0; i < argnum; i++) {
+//        	byte[] readbyte = new byte[4];
+//        	int readcount = 0;
+//        	int argaddr;
+//        	int Vaddrc = vaddrc;
+//        	readcount = readVirtualMemory(vaddrc, readbyte);
+//        	if (readcount == 0) {
+//        		return -1;
+//        	}
+//        	argaddr = Lib.bytesToInt(readbyte, 0);
+//        	args[i] = readVirtualMemoryString(Vaddrc, VtoSmaxLength);
+//        	
+//        	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
+//        	
+//        	Vaddrc = Vaddrc + 4;
+//        }
+		
+        String argPage = readVirtualMemoryString(vaddrc, pageSize);
+        String[] args = argPage.split(" ");
         
+        Lib.debug(dbgProcess, "\tArgs page: " + argPage);
+        Lib.debug(dbgProcess, "\tArgs:");
+        for (String s : args) {
+        	Lib.debug(dbgProcess, "\t" + s);
+        }
+		
 		UserProcess child = new UserProcess();
 		child.setParent(this);  // set it parent (new function)
 		this.children.put(child.getPID(), child);
-		boolean successexec = child.execute(Stringfile, args);
+		boolean successexec = child.execute(stringFile, args);
 		if (successexec) {
 			return child.getPID();
 		} else {
@@ -861,11 +895,26 @@ public class UserProcess {
 	 * process of the current process, returns -1.
 	 */
 	private int handleJoin(int joinpid, int statuspointer) {
-		System.out.println("In handleJoin, joinpid=" + joinpid);
+		Lib.debug(dbgProcess, "## In handleJoin (current pid = " +
+				getPID() + ", joinpid = " + joinpid + " status p = "
+				+ statuspointer);
 		joinLock.acquire();
+		
+		// should not wait itself!
+		if (joinpid == getPID()) {
+			joinLock.release();
+			Lib.debug(dbgProcess, "\tYou cannot wait yourself!");
+			return -1;
+		}
+		
+		if (children == null || children.size() == 0) {
+			joinLock.release();
+			Lib.debug(dbgProcess, "\tNo children to wait");
+			return -1;
+		}
 		if (!children.containsKey(joinpid)) {
 			joinLock.release();
-			System.out.println("In handleJoin, joinpid = " + joinpid + 
+			Lib.debug(dbgProcess, "\tjoinpid = " + joinpid + 
 					": child not matched");
 			return -1;
 		} else {
@@ -881,13 +930,13 @@ public class UserProcess {
 		if (endedchildren.get(joinpid) == 0) {
 			endedchildren.remove(joinpid);
 			joinLock.release();
-			System.out.println("In handleJoin, joinpid = " + joinpid + 
+			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
 					": child exited normally");
 			return 1;
 		} else {
 			endedchildren.remove(joinpid);
 			joinLock.release();
-			System.out.println("In handleJoin, joinpid = " + joinpid + 
+			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
 					": child exited exited as unhandled exception");
 			return 0;
 		}
@@ -907,7 +956,15 @@ public class UserProcess {
 	 */
 	
 	private void handleExit(int status) {
-		System.out.println("In handleExit(" + status + ")");
+		Lib.debug(dbgProcess, "In handleExit(" + status + "), pid = " + getPID());
+		
+		// when process 0 tries to exit, halt the machine...
+		if (this.getPID() == 0) {
+			UserProcess process = UserProcess.newUserProcess();
+			Lib.assertTrue(process.execute("halt.coff", new String[] {}));
+			KThread.finish();
+		}
+		
 		int localstatus = status;
 		for (int i = 0; i < MAX_FILES; i++) {
 			if(openedFiles[i] != null) {
@@ -917,13 +974,13 @@ public class UserProcess {
 				}
 			}
 		}
-		System.out.println("\tOpened files closed");
+		Lib.debug(dbgProcess, "\tOpened files closed");
 		Collection<UserProcess> coll = children.values();
 		List<UserProcess> exitchildren = new ArrayList<UserProcess>(coll);
 		for(int m = 0; m < exitchildren.size(); m++) {
 			exitchildren.get(m).parent = null; // problematic
 		}
-		System.out.println("\tChildren's parent reset");
+		Lib.debug(dbgProcess, "\tChildren's parent reset");
 		if (parent != null) {
 			joinLock.acquire();
 			parent.endedchildren.put(this.getPID(), localstatus);
@@ -933,7 +990,7 @@ public class UserProcess {
 			joinLock.release();
 		}
 		unloadSections();	
-		System.out.println("\tProcess memory deallocated, leaving handleExit()");
+		Lib.debug(dbgProcess, "\tProcess memory deallocated, leaving handleExit()");
 	}
 	
 
@@ -1012,7 +1069,21 @@ public class UserProcess {
 			handleExit(a0);
 			break;
 		case syscallExec:
-//			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
+			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
+			byte[] mm=Machine.processor().getMemory();
+			for(int i=10000;i<mm.length;i++)
+				if(mm[i]!=0)
+					System.out.println("index"+i+" "+(char)mm[i]);
+			byte[] temp=new byte[1000];
+			readVirtualMemory(a2,temp,0,1000);
+			String str;
+			try {
+				str = new String(temp, "UTF-8");
+				Lib.debug(dbgProcess, str);
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			return handleExec(a0, a1, a2);
 		case syscallJoin:
 //			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
@@ -1063,7 +1134,7 @@ public class UserProcess {
 			processor.writeRegister(Processor.regV0, result);
 			processor.advancePC();
 			break;
-
+		
 		default:
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
