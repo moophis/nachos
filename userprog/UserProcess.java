@@ -904,28 +904,42 @@ public class UserProcess {
 		// should not wait itself!
 		if (joinpid == getPID()) {
 			joinLock.release();
-			Lib.debug(dbgProcess, "\tYou cannot wait yourself!");
+			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
+					+ "))You cannot wait yourself!");
 			return -1;
 		}
 		
 		if (children == null || children.size() == 0) {
 			joinLock.release();
-			Lib.debug(dbgProcess, "\tNo children to wait");
+			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
+					+ "))No children to wait");
 			return -1;
 		}
 		if (!children.containsKey(joinpid)) {
 			joinLock.release();
-			Lib.debug(dbgProcess, "\tjoinpid = " + joinpid + 
-					": child not matched");
+			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID()
+					+ "))joinpid = " + joinpid + ": child not matched");
 			return -1;
 		} else {
 			if (endedchildren.containsKey(joinpid)) {
 				children.remove(joinpid);
 				//endedchildren.remove(joinpid);
 			} else if (!endedchildren.containsKey(joinpid)) {
-				waitjoinpid=joinpid;
+				waitjoinpid = joinpid;
 				waittojoin.sleep();
 			}	
+		}
+		
+		Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID() + 
+				"))List endedchildren");
+		for (Integer i : endedchildren.keySet()) {
+			Lib.debug(dbgProcess, "\t# pid = " + i + ", status = " + endedchildren.get(i));
+		}
+		if (endedchildren.get(joinpid) == null) {
+			Lib.debug(dbgProcess, "\t(handleJoin(curPID = " + this.getPID() 
+					+ "))Cannot find joinpid = " + joinpid 
+					+ " from endedchildren list of current pid = " + getPID());
+			return -1;
 		}
 		writeVirtualMemory(statuspointer, Lib.bytesFromInt(endedchildren.get(joinpid)));
 		if (endedchildren.get(joinpid) == 0) {
@@ -938,7 +952,7 @@ public class UserProcess {
 			endedchildren.remove(joinpid);
 			joinLock.release();
 			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
-					": child exited with unhandled exception");
+					" current pid = " + getPID() + ": child exited with unhandled exception");
 			return 0;
 		}
 	}
@@ -955,9 +969,8 @@ public class UserProcess {
 	 *
 	 * exit() never returns.
 	 */
-	
 	private void handleExit(int status) {
-		Lib.debug(dbgProcess, "In handleExit(" + status + "), pid = " + getPID());
+		Lib.debug(dbgProcess, "In handleExit(" + status + "), curPID = " + getPID());
 		
 		// when process 0 tries to exit, halt the machine...
 		if (this.getPID() == 0) {
@@ -968,7 +981,7 @@ public class UserProcess {
 		}
 		
 		int localstatus = status;
-		for (int i = 2; i < MAX_FILES; i++) {
+		for (int i = 2; i < MAX_FILES; i++) { // do not close stdin and stdout
 			if(openedFiles[i] != null) {
 				int succlose = handleClose(i);
 				if (succlose != 0) {
@@ -976,23 +989,29 @@ public class UserProcess {
 				}
 			}
 		}
-		Lib.debug(dbgProcess, "\tOpened files closed");
+		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
+				+ "))Opened files closed");
 		Collection<UserProcess> coll = children.values();
 		List<UserProcess> exitchildren = new ArrayList<UserProcess>(coll);
 		for(int m = 0; m < exitchildren.size(); m++) {
 			exitchildren.get(m).parent = null; // problematic
 		}
-		Lib.debug(dbgProcess, "\tChildren's parent reset");
+		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
+				+ "))Children's parent reset");
 		if (parent != null) {
 			joinLock.acquire();
 			parent.endedchildren.put(this.getPID(), localstatus);
 			if (parent.waitjoinpid == this.getPID()) {
+				Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() +
+						"))Put status into endedchildren of " + parent + ": pid = "
+						+ this.getPID() + " status = " + parent.endedchildren.get(this.getPID()));
 				waittojoin.wake();
 			}
 			joinLock.release();
 		}
 		unloadSections();	
-		Lib.debug(dbgProcess, "\tProcess memory deallocated, leaving handleExit()");
+		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
+				+ "))Process memory deallocated, leaving handleExit()");
 		UThread.finish();
 	}
 	
