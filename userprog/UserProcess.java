@@ -71,7 +71,7 @@ public class UserProcess {
 		
 		virtualToTransEntry = new HashMap<Integer, TranslationEntry>();
 		
-		System.out.println("*** A process has been created, pid = " + pid);
+		Lib.debug(dbgProcess, "*** A process has been created, pid = " + pid);
 	}
 	
 	/**
@@ -260,6 +260,7 @@ public class UserProcess {
 			
 			amount += count;
 		}
+//		Lib.debug(dbgProcess, "\t**Memory Read: " + new String(data, 0, amount));
 
 		return amount;
 	}
@@ -830,8 +831,8 @@ public class UserProcess {
 	 * 
 	 */
 	private int handleExec(int vaddr1, int argnum, int vaddrc) {
-		vaddrc += 128;
-		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + "argv addr: " + vaddrc);
+		vaddrc += 128; // XXX: tricky one, do not know why
+		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
 		if (stringFile == null || !stringFile.endsWith(".coff")) {
 			return -1;
@@ -865,7 +866,8 @@ public class UserProcess {
         	Lib.debug(dbgProcess, "\t" + s);
         }
 		
-		UserProcess child = new UserProcess();
+//		UserProcess child = new UserProcess();
+		UserProcess child = UserProcess.newUserProcess();
 		child.setParent(this);  // set it parent (new function)
 		this.children.put(child.getPID(), child);
 		boolean successexec = child.execute(stringFile, args);
@@ -931,13 +933,13 @@ public class UserProcess {
 			endedchildren.remove(joinpid);
 			joinLock.release();
 			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
-					": child exited normally");
+					" current pid = " + getPID() + ": child exited normally");
 			return 1;
 		} else {
 			endedchildren.remove(joinpid);
 			joinLock.release();
 			Lib.debug(dbgProcess, "In handleJoin, joinpid = " + joinpid + 
-					": child exited exited as unhandled exception");
+					": child exited with unhandled exception");
 			return 0;
 		}
 	}
@@ -960,13 +962,14 @@ public class UserProcess {
 		
 		// when process 0 tries to exit, halt the machine...
 		if (this.getPID() == 0) {
-			UserProcess process = UserProcess.newUserProcess();
-			Lib.assertTrue(process.execute("halt.coff", new String[] {}));
-			KThread.finish();
+//			UserProcess process = UserProcess.newUserProcess();
+//			Lib.assertTrue(process.execute("halt.coff", new String[] {}));
+//			KThread.finish();
+			Kernel.kernel.terminate();
 		}
 		
 		int localstatus = status;
-		for (int i = 0; i < MAX_FILES; i++) {
+		for (int i = 2; i < MAX_FILES; i++) {
 			if(openedFiles[i] != null) {
 				int succlose = handleClose(i);
 				if (succlose != 0) {
@@ -991,6 +994,7 @@ public class UserProcess {
 		}
 		unloadSections();	
 		Lib.debug(dbgProcess, "\tProcess memory deallocated, leaving handleExit()");
+		UThread.finish();
 	}
 	
 
@@ -1070,20 +1074,20 @@ public class UserProcess {
 			break;
 		case syscallExec:
 			Lib.debug(dbgProcess, "Handle syscallExec " + syscall);
-			byte[] mm=Machine.processor().getMemory();
-			for(int i=10000;i<mm.length;i++)
-				if(mm[i]!=0)
-					System.out.println("index"+i+" "+(char)mm[i]);
-			byte[] temp=new byte[1000];
-			readVirtualMemory(a2,temp,0,1000);
-			String str;
-			try {
-				str = new String(temp, "UTF-8");
-				Lib.debug(dbgProcess, str);
-			} catch (UnsupportedEncodingException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+//			byte[] mm = Machine.processor().getMemory();
+//			for(int i= 10000; i < mm.length; i++)
+//				if (mm[i] != 0)
+//					System.out.println("index" + i + " " + (char) mm[i]);
+//			byte[] temp = new byte[1000];
+//			readVirtualMemory(a2 + 128, temp, 0, 1000);
+//			String str;
+//			try {
+//				str = new String(temp, "UTF-8");
+//				Lib.debug(dbgProcess, str);
+//			} catch (UnsupportedEncodingException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
 			return handleExec(a0, a1, a2);
 		case syscallJoin:
 //			Lib.debug(dbgProcess, "Handle syscallJoin " + syscall);
