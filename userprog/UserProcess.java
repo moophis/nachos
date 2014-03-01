@@ -522,6 +522,8 @@ public class UserProcess {
 		pageTable = null;
 		children = null;
 		
+		coff.close();
+		
 		UserKernel.fpLock.release();
 	}
 
@@ -831,7 +833,7 @@ public class UserProcess {
 	 * 
 	 */
 	private int handleExec(int vaddr1, int argnum, int vaddrc) {
-		vaddrc += 128; // XXX: tricky one, do not know why
+//		vaddrc += 128; // XXX: tricky one, do not know why
 		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
 		if (stringFile == null || !stringFile.endsWith(".coff")) {
@@ -839,32 +841,29 @@ public class UserProcess {
 		}
 		Lib.debug(dbgProcess, "\tProgram name: " + stringFile);
 		
-//		String[] args = new String[argnum];
-//        for (int i = 0; i < argnum; i++) {
-//        	byte[] readbyte = new byte[4];
-//        	int readcount = 0;
-//        	int argaddr;
-//        	int Vaddrc = vaddrc;
-//        	readcount = readVirtualMemory(vaddrc, readbyte);
-//        	if (readcount == 0) {
-//        		return -1;
-//        	}
-//        	argaddr = Lib.bytesToInt(readbyte, 0);
-//        	args[i] = readVirtualMemoryString(Vaddrc, VtoSmaxLength);
-//        	
-//        	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
-//        	
-//        	Vaddrc = Vaddrc + 4;
-//        }
-		
-        String argPage = readVirtualMemoryString(vaddrc, pageSize);
-        String[] args = argPage.split(" ");
-        
-        Lib.debug(dbgProcess, "\tArgs page: " + argPage);
-        Lib.debug(dbgProcess, "\tArgs:");
-        for (String s : args) {
-        	Lib.debug(dbgProcess, "\t" + s);
+		String[] args = new String[argnum];
+        for (int i = 0; i < argnum; i++) {
+        	byte[] readbyte = new byte[4];
+        	int readcount = 0;
+        	int argAddr;
+        	readcount = readVirtualMemory(vaddrc + (i * 4), readbyte);
+        	if (readcount == 0) {
+        		return -1;
+        	}
+        	argAddr = Lib.bytesToInt(readbyte, 0);
+        	args[i] = readVirtualMemoryString(argAddr, VtoSmaxLength);
+        	
+        	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
         }
+		
+//        String argPage = readVirtualMemoryString(vaddrc, pageSize);
+//        String[] args = argPage.split(" ");
+//        
+//        Lib.debug(dbgProcess, "\tArgs page: " + argPage);
+//        Lib.debug(dbgProcess, "\tArgs:");
+//        for (String s : args) {
+//        	Lib.debug(dbgProcess, "\t" + s);
+//        }
 		
 //		UserProcess child = new UserProcess();
 		UserProcess child = UserProcess.newUserProcess();
