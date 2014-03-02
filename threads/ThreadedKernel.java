@@ -47,18 +47,18 @@ public class ThreadedKernel extends Kernel {
 	 * here.
 	 */
 	public void selfTest() {
-		KThread.selfTest();
-		System.err.println(" ++++++ Now begin Semaphore ++++++");
-		Semaphore.selfTest();
-		System.err.println(" ++++++ Now begin SynchList ++++++");
-		SynchList.selfTest();
-		
-		if (Machine.bank() != null) {
-			ElevatorBank.selfTest();
-		}
-		Communicator.selfTest();
-		PriorityScheduler.selfTest();
-		Boat.selfTest();
+//		KThread.selfTest();
+//		System.err.println(" ++++++ Now begin Semaphore ++++++");
+//		Semaphore.selfTest();
+//		System.err.println(" ++++++ Now begin SynchList ++++++");
+//		SynchList.selfTest();
+//		
+//		if (Machine.bank() != null) {
+//			ElevatorBank.selfTest();
+//		}
+//		Communicator.selfTest();
+		LotteryScheduler.selfTest1();
+//		Boat.selfTest();
 	}
 
 	/**
