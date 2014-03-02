@@ -197,7 +197,8 @@ int main(int argc, char *argv[]) {
 	printf("%s", prompt);
 
 	readline(buffer, BUFFERSIZE);
-
+//	printf("ONE LINE READ!\n");
 	runline(buffer);
+//	printf("COMMAND FINISHED!\n");
     }
 }

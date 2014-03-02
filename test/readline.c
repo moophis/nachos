@@ -8,7 +8,7 @@ void readline(char *s, int maxlength) {
     char c = getch();
     /* if end of line, finish up */
     if (c == '\n') {
-      putchar('\n');
+//      putchar('\n');
       s[i] = 0;
       return;
     }
@@ -20,7 +20,7 @@ void readline(char *s, int maxlength) {
       }
       /* else delete it */
       else {
-	printf("\b \b");
+//	printf("\b \b");
 	i--;
       }
     }
@@ -31,7 +31,7 @@ void readline(char *s, int maxlength) {
     /* else add the character */
     else {
       s[i++] = c;
-      putchar(c);
+//      putchar(c);
     }
   }
 }

@@ -71,6 +71,7 @@ public class UserProcess {
 	 * resources.
 	 */
 	public void setParent(UserProcess parent) {
+		Lib.assertTrue(parent != null);
 		this.parent = parent;
 		
 		parent.children.put(this.getPID(), this);
@@ -696,8 +697,9 @@ public class UserProcess {
 	 * @return number of bytes written on success, or -1 if there was an error
 	 */
 	private int handleWrite(int fileDescriptor, int baddr, int count) {
-//		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
-//				+ " buf addr = " + baddr + " count = " + count);
+		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
+				+ " buf addr = " + baddr + " count = " + count
+				+ " curPID = " + getPID());
 		//Verify valid fileDescriptor and valid count parameters
 		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0) || count < 0)
 		{
