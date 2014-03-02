@@ -452,7 +452,14 @@ public class LotteryScheduler extends Scheduler {
 			// implement me
 			LotteryThreadState lts = dequeueWinner();
 			
-			return (lts != null) ? lts.thread : null;		
+			if (lts == null)
+				return null;
+			
+			// update the efficient priority if possible.
+			lts.acquire(this);
+			lts.currentWait = null;
+			
+			return lts.thread;		
 		}
 		
 		/**
@@ -490,6 +497,7 @@ public class LotteryScheduler extends Scheduler {
 					for (LotteryThreadState ts : candidates) {
 						currentTickets += ts.getEffectivePriority();
 						if (pickedTickets < currentTickets) {
+							Lib.debug(dbgPS, "\tNext running thread: " + ts.thread);
 							priorityQueue.remove(ts);
 							return ts;
 						}
@@ -746,8 +754,8 @@ public class LotteryScheduler extends Scheduler {
 					Lib.debug(dbgPS, "holder is null");
 				}
 				this.donate();
-				Lib.debug(dbgPS, "++ After donation (wait), next thread: " 
-		                  + currentWait.pickNextThread().thread);
+//				Lib.debug(dbgPS, "++ After donation (wait), next thread: " 
+//		                  + currentWait.pickNextThread().thread);
 			}
 		}
 
