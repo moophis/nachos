@@ -57,7 +57,7 @@ public class ThreadedKernel extends Kernel {
 //			ElevatorBank.selfTest();
 //		}
 //		Communicator.selfTest();
-		LotteryScheduler.selfTest2();
+		LotteryScheduler.selfTest();
 //		Boat.selfTest();
 	}
 

@@ -45,7 +45,7 @@ public class UserProcess {
 		pidLock.release();
 		
 		// Initialize open files
-		openFileLock.acquire();
+		fileLock.acquire();
 		// Since process 0 is init process, other process should
 		// inherit the stdin and stdout console file which are created
 		// by the init process.
@@ -55,7 +55,7 @@ public class UserProcess {
 			openedFiles[0] = stdin;
 			openedFiles[1] = stdout;
 		} 
-		openFileLock.release();
+		fileLock.release();
 		
 		// Initialize children structure
 		children = new HashMap<Integer, UserProcess>();
@@ -79,12 +79,12 @@ public class UserProcess {
 				+ ") gets a child (pid = " + parent.children.get(this.getPID())+ ")");
 		
 		// set shared opened files
-		openFileLock.acquire();
+		fileLock.acquire();
 		this.stdin = parent.stdin;
 		this.stdout = parent.stdout;
 		openedFiles[0] = stdin;
 		openedFiles[1] = stdout;
-		openFileLock.release();
+		fileLock.release();
 	}
 	
 	/**
@@ -665,8 +665,10 @@ public class UserProcess {
 				byte[] tempReadBuffer = new byte[count];
 				
 				//read the file
+				fileLock.acquire();
 				int bytesRead =
 					readFile.read(tempReadBuffer, 0, count);
+				fileLock.release();
 				if(bytesRead != -1)
 				{
 					return writeVirtualMemory(baddr, tempReadBuffer, 0, bytesRead);
@@ -720,8 +722,10 @@ public class UserProcess {
 			
 				if(bytesFromVirtual == count)
 				{
+					fileLock.acquire();
 					int bytesWritten = writeFile.write(tempWriteBuffer, 0, bytesFromVirtual);
-				
+					fileLock.release();
+					
 					if(bytesWritten != bytesFromVirtual)
 					{
 						return -1;
@@ -851,13 +855,18 @@ public class UserProcess {
         	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
         }
         
-		UserProcess child = UserProcess.newUserProcess();
+//		UserProcess child = UserProcess.newUserProcess();
+        UserProcess child = new UserProcess();
 		child.setParent(this);  // set it parent (new function)
 		this.children.put(child.getPID(), child);
 		boolean successexec = child.execute(stringFile, args);
 		if (successexec) {
 			return child.getPID();
 		} else {
+			pidLock.acquire();
+			totalProcess--; // process did not run
+			pidAccumulated--;
+			pidLock.release();
 			return -1;
 		}
 	}
@@ -1220,7 +1229,7 @@ public class UserProcess {
 	
 	/** Resource lockers */
 	private static Lock pidLock = new Lock();
-	private static Lock openFileLock = new Lock();
+	private static Lock fileLock = new Lock();
 	private static Lock joinLock = new Lock();
 	
 	/** Console file: standard input & standard output */
