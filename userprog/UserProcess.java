@@ -71,20 +71,22 @@ public class UserProcess {
 	 * resources.
 	 */
 	public void setParent(UserProcess parent) {
-		Lib.assertTrue(parent != null);
-		this.parent = parent;
-		
-		parent.children.put(this.getPID(), this);
-		Lib.debug(dbgProcess, "parent (pid = " + parent.getPID() 
-				+ ") gets a child (pid = " + parent.children.get(this.getPID())+ ")");
-		
-		// set shared opened files
-		fileLock.acquire();
-		this.stdin = parent.stdin;
-		this.stdout = parent.stdout;
-		openedFiles[0] = stdin;
-		openedFiles[1] = stdout;
-		fileLock.release();
+//		Lib.assertTrue(parent != null);
+		if (parent != null) {
+			this.parent = parent;
+			
+			parent.children.put(this.getPID(), this);
+			Lib.debug(dbgProcess, "parent (pid = " + parent.getPID() 
+					+ ") gets a child (pid = " + parent.children.get(this.getPID())+ ")");
+			
+			// set shared opened files
+			fileLock.acquire();
+			this.stdin = parent.stdin;
+			this.stdout = parent.stdout;
+			openedFiles[0] = stdin;
+			openedFiles[1] = stdout;
+			fileLock.release();
+		}
 	}
 	
 	/**
@@ -835,7 +837,7 @@ public class UserProcess {
 	private int handleExec(int vaddr1, int argnum, int vaddrc) {
 		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
-		if (stringFile == null || !stringFile.endsWith(".coff")) {
+		if (stringFile == null || !stringFile.endsWith(".coff") || argnum < 0) {
 			return -1;
 		}
 		Lib.debug(dbgProcess, "\tProgram name: " + stringFile);
@@ -852,11 +854,12 @@ public class UserProcess {
         	argAddr = Lib.bytesToInt(readbyte, 0);
         	args[i] = readVirtualMemoryString(argAddr, VtoSmaxLength);
         	
+        	if (args[i] == null)
+        		return -1;
         	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
         }
         
-//		UserProcess child = UserProcess.newUserProcess();
-        UserProcess child = new UserProcess();
+		UserProcess child = UserProcess.newUserProcess();
 		child.setParent(this);  // set it parent (new function)
 		this.children.put(child.getPID(), child);
 		boolean successexec = child.execute(stringFile, args);
@@ -969,13 +972,6 @@ public class UserProcess {
 	private void handleExit(int status) {
 		Lib.debug(dbgProcess, "In handleExit(" + status + "), curPID = " + getPID());
 		
-		// when process 0 tries to exit, halt the machine...
-		Lib.assertTrue(totalProcess > 0);
-		// the last process in the OS
-		if (--totalProcess == 0) {
-			Kernel.kernel.terminate();
-		}
-		
 		int localStatus = status;
 		for (int i = 2; i < MAX_FILES; i++) { // do not close stdin and stdout
 			if(openedFiles[i] != null) {
@@ -1017,6 +1013,16 @@ public class UserProcess {
 
 		Lib.debug(dbgProcess, "\t(handleExit(curPID = " + this.getPID() 
 				+ ")) Process memory deallocated, leaving handleExit()");
+		
+		// when process 0 tries to exit, halt the machine...
+		pidLock.acquire();
+		Lib.assertTrue(totalProcess > 0);
+		// the last process in the OS
+		if (--totalProcess == 0) {
+			Kernel.kernel.terminate();
+		}
+		pidLock.release();
+		
 		UThread.finish();
 	}
 	
