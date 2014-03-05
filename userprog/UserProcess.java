@@ -45,17 +45,15 @@ public class UserProcess {
 		pidLock.release();
 		
 		// Initialize open files
-		fileLock.acquire();
+//		fileLock.acquire();
 		// Since process 0 is init process, other process should
 		// inherit the stdin and stdout console file which are created
-		// by the init process.
-		if (pid == 0) {
-			stdin = UserKernel.console.openForReading();
-			stdout = UserKernel.console.openForWriting();
-			openedFiles[0] = stdin;
-			openedFiles[1] = stdout;
-		} 
-		fileLock.release();
+		// by the init process.		
+		stdin = UserKernel.console.openForReading();
+		stdout = UserKernel.console.openForWriting();
+		openedFiles[0] = stdin;
+		openedFiles[1] = stdout;
+//		fileLock.release();
 		
 		// Initialize children structure
 		children = new HashMap<Integer, UserProcess>();
@@ -78,14 +76,6 @@ public class UserProcess {
 			parent.children.put(this.getPID(), this);
 			Lib.debug(dbgProcess, "parent (pid = " + parent.getPID() 
 					+ ") gets a child (pid = " + parent.children.get(this.getPID())+ ")");
-			
-			// set shared opened files
-			fileLock.acquire();
-			this.stdin = parent.stdin;
-			this.stdout = parent.stdout;
-			openedFiles[0] = stdin;
-			openedFiles[1] = stdout;
-			fileLock.release();
 		}
 	}
 	
@@ -579,7 +569,7 @@ public class UserProcess {
 			{
 				//Find first empty slot in openedFiles, and place file there.
 				int openSlot = 0;
-				while((openedFiles[openSlot] != null) && (openSlot < MAX_FILES))
+				while((openSlot < MAX_FILES) && (openedFiles[openSlot] != null))
 				{
 					openSlot++;
 				}
@@ -612,7 +602,7 @@ public class UserProcess {
 			{
 				//Find first empty slot in openedFiles, and place file there.
 				int openSlot = 0;
-				while((openedFiles[openSlot] != null) && (openSlot < MAX_FILES))
+				while((openSlot < MAX_FILES) && (openedFiles[openSlot] != null))
 				{
 					openSlot++;
 				}
@@ -667,10 +657,10 @@ public class UserProcess {
 				byte[] tempReadBuffer = new byte[count];
 				
 				//read the file
-				fileLock.acquire();
+//				fileLock.acquire();
 				int bytesRead =
 					readFile.read(tempReadBuffer, 0, count);
-				fileLock.release();
+//				fileLock.release();
 				if(bytesRead != -1)
 				{
 					return writeVirtualMemory(baddr, tempReadBuffer, 0, bytesRead);
@@ -724,9 +714,9 @@ public class UserProcess {
 			
 				if(bytesFromVirtual == count)
 				{
-					fileLock.acquire();
+//					fileLock.acquire();
 					int bytesWritten = writeFile.write(tempWriteBuffer, 0, bytesFromVirtual);
-					fileLock.release();
+//					fileLock.release();
 					
 					if(bytesWritten != bytesFromVirtual)
 					{
