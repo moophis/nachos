@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="EclipseModuleManager">
+    <libelement value="file://$MODULE_DIR$/proj0" />
+    <libelement value="file://$MODULE_DIR$/proj1" />
+    <libelement value="file://$MODULE_DIR$/proj2" />
+    <libelement value="file://$MODULE_DIR$/proj3" />
+    <src_description expected_position="0">
+      <src_folder value="file://$MODULE_DIR$/" expected_position="0" />
+    </src_description>
+  </component>
+  <component name="NewModuleRootManager" inherit-compiler-output="false">
+    <output url="file://$MODULE_DIR$" />
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
+    </content>
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="jdk" jdkName="J2SE-1.5" jdkType="JavaSDK" />
+    <orderEntry type="module-library">
+      <library name="proj0">
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/proj0" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="proj1">
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/proj1" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="proj2">
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/proj2" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="proj3">
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/proj3" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+  </component>
+</module>
+
