@@ -657,10 +657,10 @@ public class UserProcess {
 				byte[] tempReadBuffer = new byte[count];
 				
 				//read the file
-//				fileLock.acquire();
+				fileLock.acquire();
 				int bytesRead =
 					readFile.read(tempReadBuffer, 0, count);
-//				fileLock.release();
+				fileLock.release();
 				if(bytesRead != -1)
 				{
 					return writeVirtualMemory(baddr, tempReadBuffer, 0, bytesRead);
@@ -714,9 +714,9 @@ public class UserProcess {
 			
 				if(bytesFromVirtual == count)
 				{
-//					fileLock.acquire();
+					fileLock.acquire();
 					int bytesWritten = writeFile.write(tempWriteBuffer, 0, bytesFromVirtual);
-//					fileLock.release();
+					fileLock.release();
 					
 					if(bytesWritten != bytesFromVirtual)
 					{
@@ -789,6 +789,10 @@ public class UserProcess {
 		//Get the string file name located at the virtual address
 		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
 		
+		if(fileName == null)
+		{
+			return -1;
+		}
 		//Call the remove method in the FileSystem stub
 		//It will check to see if the file name is valid
 		//as a part of its processing. Returns false on error.
