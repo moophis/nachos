@@ -967,7 +967,7 @@ public class UserProcess {
 		Lib.debug(dbgProcess, "In handleExit(" + status + "), curPID = " + getPID());
 		
 		int localStatus = status;
-		for (int i = 2; i < MAX_FILES; i++) { // do not close stdin and stdout
+		for (int i = 0; i < MAX_FILES; i++) {
 			if(openedFiles[i] != null) {
 				int succlose = handleClose(i);
 				if (succlose != 0) {

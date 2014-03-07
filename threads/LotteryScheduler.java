@@ -128,7 +128,7 @@ public class LotteryScheduler extends Scheduler {
     			lock1.release();
     			KThread.yield();
     			
-    			System.err.println("--------Low thread 1 running AFTER releasing the lock 1...");
+    			System.out.println("--------Low thread 1 running AFTER releasing the lock 1...");
     		}
     	}).setName("Low Thread 1");
     	oldP = Machine.interrupt().disable();
@@ -152,7 +152,7 @@ public class LotteryScheduler extends Scheduler {
     			lock2.release();
     			KThread.yield();
     			
-    			System.err.println("--------Middle thread 1 running AFTER releasing the lock 2...");
+    			System.out.println("--------Middle thread 1 running AFTER releasing the lock 2...");
     		}
     	}).setName("Middle Thread 1");
     	oldP = Machine.interrupt().disable();
@@ -178,7 +178,7 @@ public class LotteryScheduler extends Scheduler {
     			lock1.release();
     			KThread.yield();
     			
-    			System.err.println("--------High thread 1 running AFTER releasing the lock 1,2...");
+    			System.out.println("--------High thread 1 running AFTER releasing the lock 1,2...");
     		}
     	}).setName("High Thread 1");
     	oldP = Machine.interrupt().disable();
@@ -201,7 +201,7 @@ public class LotteryScheduler extends Scheduler {
     			lock2.release();
     			KThread.yield();
     			
-    			System.err.println("--------High thread 2 running AFTER releasing the lock 2...");
+    			System.out.println("--------High thread 2 running AFTER releasing the lock 2...");
     		}
     	}).setName("High Thread 2");
     	oldP = Machine.interrupt().disable();
