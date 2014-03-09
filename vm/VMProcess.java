@@ -25,6 +25,7 @@ public class VMProcess extends UserProcess {
 	 */
 	public void saveState() {
 		super.saveState();
+        // TODO
 	}
 
 	/**
@@ -33,6 +34,7 @@ public class VMProcess extends UserProcess {
 	 */
 	public void restoreState() {
 		super.restoreState();
+        // TODO
 	}
 
     /**
@@ -60,6 +62,7 @@ public class VMProcess extends UserProcess {
 	 * @return <tt>true</tt> if successful.
 	 */
 	protected boolean loadSections() {
+        // TODO: for task 3
 		return super.loadSections();
 	}
 
@@ -88,7 +91,7 @@ public class VMProcess extends UserProcess {
 		switch (cause) {
         case Processor.exceptionTLBMiss:
             // TODO
-            handleTLBMiss(Machine.processor().readRegister(Processor.regBadVAddr));
+            handleTLBMiss(processor.readRegister(Processor.regBadVAddr));
             break;
 		default:
 			super.handleException(cause);
