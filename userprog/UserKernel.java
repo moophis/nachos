@@ -141,7 +141,8 @@ public class UserKernel extends ThreadedKernel {
 	
 	/** 
 	 * PID poll: used to find a free PID number in order to keep it 
-	 * as small as possible 
+	 * as small as possible
+     * @deprecated
 	 */
 	public static HashSet<Integer> pidPoll = null;
 	

@@ -1,9 +1,12 @@
 package nachos.vm;
 
 import nachos.machine.*;
+import nachos.machine.Processor;
 import nachos.threads.*;
 import nachos.userprog.*;
 import nachos.vm.*;
+
+import javax.annotation.processing.*;
 
 /**
  * A <tt>UserProcess</tt> that supports demand-paging.
@@ -32,6 +35,24 @@ public class VMProcess extends UserProcess {
 		super.restoreState();
 	}
 
+    /**
+     * Transfer data from memory to buffering array.
+     */
+    @Override
+    public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+        // TODO
+        return 0;
+    }
+
+    /**
+     * Transfer data from buffering array to physical memory.
+     */
+    @Override
+    public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
+        // TODO
+        return 0;
+    }
+
 	/**
 	 * Initializes page tables for this process so that the executable can be
 	 * demand-paged.
@@ -49,6 +70,11 @@ public class VMProcess extends UserProcess {
 		super.unloadSections();
 	}
 
+    private int handleTLBMiss(int vaddr) {
+        // TODO
+        return -1;
+    }
+
 	/**
 	 * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
 	 * . The <i>cause</i> argument identifies which exception occurred; see the
@@ -60,6 +86,10 @@ public class VMProcess extends UserProcess {
 		Processor processor = Machine.processor();
 
 		switch (cause) {
+        case Processor.exceptionTLBMiss:
+            // TODO
+            handleTLBMiss(Machine.processor().readRegister(Processor.regBadVAddr));
+            break;
 		default:
 			super.handleException(cause);
 			break;
