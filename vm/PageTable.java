@@ -83,10 +83,10 @@ public class PageTable {
 
 
     /** Inverted page table <vaddr, <pid, entry>> */
-    private HashMap virtualToEntry = null;
+    private HashMap<Integer, PIDEntry> virtualToEntry = null;
 
     /** Inverted core map <paddr, <pid, entry>> */
-    private HashMap phyicalToEntry = null;
+    private HashMap<Integer, PIDEntry> phyicalToEntry = null;
 
     /** Memory lock */
     private Lock memLock = new Lock();
