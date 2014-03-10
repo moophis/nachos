@@ -4,7 +4,6 @@ import nachos.machine.*;
 import nachos.machine.Processor;
 import nachos.threads.*;
 import nachos.userprog.*;
-import nachos.vm.*;
 
 
 /**
@@ -16,6 +15,7 @@ public class VMProcess extends UserProcess {
      */
     public VMProcess() {
         super();
+        // TODO
     }
 
     /**
@@ -123,6 +123,9 @@ public class VMProcess extends UserProcess {
                     + " count=" + count);
             System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 
+            te.used = true;
+            Machine.processor().writeTLBEntry(tlbIndex, te);
+
             amount += count;
         }
 
@@ -191,6 +194,7 @@ public class VMProcess extends UserProcess {
             System.arraycopy(data, offset + amount, physicalMemory, dstPos, count);
 
             te.dirty = true;  // set it dirty
+            te.used = true;  // set it used
             Machine.processor().writeTLBEntry(tlbIndex, te);
 
             amount += count;
