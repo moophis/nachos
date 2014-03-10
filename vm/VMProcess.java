@@ -221,7 +221,7 @@ public class VMProcess extends UserProcess {
     /**
      * Handle TLB miss.
      *
-     * @return - index in TLB, if TLB is handled
+     * @return - index in TLB, if TLB is handled;
      *           -1, if the miss cannot be handled, might be a page fault.
      */
     private int handleTLBMiss(int vaddr) {

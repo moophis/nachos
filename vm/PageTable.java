@@ -11,14 +11,14 @@ import java.util.HashMap;
  *
  * Created by liqiangw on 3/8/14.
  */
-public class MemoryManager {
-    private static MemoryManager ourInstance = new MemoryManager();
+public class PageTable {
+    private static PageTable ourInstance = new PageTable();
 
-    public static MemoryManager getInstance() {
+    public static PageTable getInstance() {
         return ourInstance;
     }
 
-    private MemoryManager() {
+    private PageTable() {
         virtualToEntry = new HashMap<Integer, PIDEntry>();
         phyicalToEntry = new HashMap<Integer, PIDEntry>();
     }
