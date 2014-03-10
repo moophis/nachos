@@ -26,14 +26,14 @@ public class MemoryManager {
     /**
      * Get PIDEntry from virtual memory.
      *
-     * @param vpage - virtual memory page number.
+     * @param vpn - virtual memory page number.
      */
-    public PIDEntry getEntryFromVirtual(int vpage) {
+    public PIDEntry getEntryFromVirtual(int vpn) {
         PIDEntry ret = null;
 
         memLock.acquire();
-        if (virtualToEntry.containsKey(vpage)) {
-            ret = (PIDEntry) virtualToEntry.get(vpage);
+        if (virtualToEntry.containsKey(vpn)) {
+            ret = (PIDEntry) virtualToEntry.get(vpn);
         }
         memLock.release();
 
@@ -43,26 +43,26 @@ public class MemoryManager {
     /**
      * Associate PIDEntry with virtual memory.
      *
-     * @param vpage - virtual memory page number.
+     * @param vpn - virtual memory page number.
      * @param entry - the Translation entry with process ID.
      */
-    public void setVirtualToEntry(int vpage, PIDEntry entry) {
+    public void setVirtualToEntry(int vpn, PIDEntry entry) {
         memLock.acquire();
-        virtualToEntry.put(vpage, entry);
+        virtualToEntry.put(vpn, entry);
         memLock.release();
     }
 
     /**
      * Get PIDEntry from physical memory.
      *
-     * @param ppage - physical memory page number.
+     * @param ppn - physical memory page number.
      */
-    public PIDEntry getEntryFromPhysical(int ppage) {
+    public PIDEntry getEntryFromPhysical(int ppn) {
         PIDEntry ret = null;
 
         memLock.acquire();
-        if (phyicalToEntry.containsKey(ppage)) {
-            ret = (PIDEntry) phyicalToEntry.get(ppage);
+        if (phyicalToEntry.containsKey(ppn)) {
+            ret = (PIDEntry) phyicalToEntry.get(ppn);
         }
         memLock.release();
 
@@ -72,12 +72,12 @@ public class MemoryManager {
     /**
      * Associate PIDEntry with physical memory.
      *
-     * @param ppage - virtual memory page number.
+     * @param ppn - virtual memory page number.
      * @param entry - the Translation entry with process ID.
      */
-    public void setPhysicalToEntry(int ppage, PIDEntry entry) {
+    public void setPhysicalToEntry(int ppn, PIDEntry entry) {
         memLock.acquire();
-        phyicalToEntry.put(ppage, entry);
+        phyicalToEntry.put(ppn, entry);
         memLock.release();
     }
 
