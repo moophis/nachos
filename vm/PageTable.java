@@ -1,6 +1,5 @@
 package nachos.vm;
 
-import nachos.machine.TranslationEntry;
 import nachos.threads.Lock;
 
 import java.util.HashMap;
@@ -19,7 +18,7 @@ public class PageTable {
     }
 
     private PageTable() {
-        virtualToEntry = new HashMap<Integer, PIDEntry>();
+        virtualToEntry = new HashMap<VP, PIDEntry>();
         phyicalToEntry = new HashMap<Integer, PIDEntry>();
     }
 
@@ -28,14 +27,15 @@ public class PageTable {
      *
      * @param vpn - virtual memory page number.
      */
-    public PIDEntry getEntryFromVirtual(int vpn) {
+    public PIDEntry getEntryFromVirtual(int vpn, int pid) {
         PIDEntry ret = null;
 
-        memLock.acquire();
-        if (virtualToEntry.containsKey(vpn)) {
-            ret = virtualToEntry.get(vpn);
+        pageLock.acquire();
+        VP vp = new VP(vpn, pid);
+        if (virtualToEntry.containsKey(vp)) {
+            ret = virtualToEntry.get(vp);
         }
-        memLock.release();
+        pageLock.release();
 
         return ret;
     }
@@ -46,10 +46,10 @@ public class PageTable {
      * @param vpn - virtual memory page number.
      * @param entry - the Translation entry with process ID.
      */
-    public void setVirtualToEntry(int vpn, PIDEntry entry) {
-        memLock.acquire();
-        virtualToEntry.put(vpn, entry);
-        memLock.release();
+    public void setVirtualToEntry(int vpn, int pid, PIDEntry entry) {
+        pageLock.acquire();
+        virtualToEntry.put(new VP(vpn, pid), entry);
+        pageLock.release();
     }
 
     /**
@@ -60,11 +60,11 @@ public class PageTable {
     public PIDEntry getEntryFromPhysical(int ppn) {
         PIDEntry ret = null;
 
-        memLock.acquire();
+        pageLock.acquire();
         if (phyicalToEntry.containsKey(ppn)) {
             ret = phyicalToEntry.get(ppn);
         }
-        memLock.release();
+        pageLock.release();
 
         return ret;
     }
@@ -76,18 +76,26 @@ public class PageTable {
      * @param entry - the Translation entry with process ID.
      */
     public void setPhysicalToEntry(int ppn, PIDEntry entry) {
-        memLock.acquire();
+        pageLock.acquire();
         phyicalToEntry.put(ppn, entry);
-        memLock.release();
+        pageLock.release();
     }
 
+    /**
+     * Choose a victim page using clock algorithm.
+     * @return the associated PIDEntry of the victim
+     */
+    public PIDEntry victimize() {
+        // TODO
+        return null;
+    }
 
-    /** Inverted page table <vaddr, <pid, entry>> */
-    private HashMap<Integer, PIDEntry> virtualToEntry = null;
+    /** Inverted page table <<vpn, pid>, <pid, entry>> */
+    private HashMap<VP, PIDEntry> virtualToEntry = null;
 
     /** Inverted core map <paddr, <pid, entry>> */
     private HashMap<Integer, PIDEntry> phyicalToEntry = null;
 
     /** Memory lock */
-    private Lock memLock = new Lock();
+    private Lock pageLock = new Lock();
 }

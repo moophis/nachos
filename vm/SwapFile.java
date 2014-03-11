@@ -106,19 +106,6 @@ public class SwapFile {
     }
 
     /**
-     * Virtual page number - PID pair.
-     */
-    private class VP {
-        private int pid;
-        private int vpn;
-
-        public VP(int pid, int vpn) {
-            this.pid = pid;
-            this.vpn = vpn;
-        }
-    }
-
-    /**
      * Swapped page map from VP to the beginning index of
      * the swapped file in pages.
      */

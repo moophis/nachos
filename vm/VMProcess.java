@@ -231,7 +231,7 @@ public class VMProcess extends UserProcess {
     private int handleTLBMiss(int vaddr) {
         // TODO: use randomlyVictimizeTLB() to replace
         int vpn = Processor.pageFromAddress(vaddr);
-        PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn);
+        PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
 
         if (pe == null || pe.getEntry() == null
                 || !pe.getEntry().valid)
@@ -267,24 +267,80 @@ public class VMProcess extends UserProcess {
      * Swap page from disk to physical memory.
      *
      * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
      * @return true on success, false otherwise.
      */
-    private boolean swapIn(int vpn) {
-        // TODO
-        return false;
+    private boolean swapIn(int vpn, int pid) {
+        // TODO: need a check
+        vmLock.acquire();
+        PageTable pt = PageTable.getInstance();
+        SwapFile sf = SwapFile.getInstance();
+        Lib.assertTrue(pt != null && sf != null);
+
+        byte[] buf = new byte[pageSize];
+        if (sf.readPage(buf, 0, vpn, pid) != pageSize) {
+            Lib.debug(dbgVM, "\tReading page from swap failed!");
+            return false;
+        }
+
+        // find free slot in main memory
+        int ppn = -1;
+        if (UserKernel.freePages.size() > 0) {
+            ppn = UserKernel.freePages.poll();
+        }
+        if (ppn == -1) { // no free main memory
+            if ((ppn = swapOut(nextVictimPage())) == -1) {
+                Lib.debug(dbgVM, "\tswapOut() failed: no free page!");
+                vmLock.release();
+                return false;
+            }
+        }
+
+        // form a new PIDEntry
+        PIDEntry pe;
+        TranslationEntry te;
+        if ((pe = pt.getEntryFromVirtual(vpn, pid)) == null) {
+            Lib.debug(dbgVM, "\tgetting entry failed: no such entry!");
+            vmLock.release();
+            return false;
+        }
+
+        te = pe.getEntry();
+        te.ppn = ppn;
+        te.vpn = vpn;
+        te.valid = true;
+        te.used = false;
+        te.dirty = false;
+        pe.setEntry(te);
+        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
+
+        int vaddr = Processor.makeAddress(vpn, 0);
+        if (writeVirtualMemory(vaddr, buf) != pageSize) {
+            Lib.debug(dbgVM, "\tWritting to memory failed: no such entry!");
+            vmLock.release();
+            return false;
+        }
+
+        vmLock.release();
+        return true;
     }
 
     /**
      * Swap page from physical memory to disk.
      *
-     * @param vpn - virtual memory page number.
-     * @return true on success, false otherwise.
+     * @param outEntry - the entry associated with the victim page.
+     * @return page number of freed physical memory on success,
+     *         -1 otherwise.
      */
-    private boolean swapOut(int vpn) {
+    private int swapOut(PIDEntry outEntry) {
         // TODO
-        return false;
+        return -1;
     }
 
+    private PIDEntry nextVictimPage() {
+        // TODO
+        return null;
+    }
 
     /**
      * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
@@ -298,9 +354,9 @@ public class VMProcess extends UserProcess {
 
         switch (cause) {
         case Processor.exceptionTLBMiss:
-            regLock.acquire();
+            vmLock.acquire();
             int badVAddr = processor.readRegister(Processor.regBadVAddr);
-            regLock.release();
+            vmLock.release();
             if (handleTLBMiss(badVAddr) == -1) {
                 // TODO: handle page fault
             }
@@ -317,5 +373,5 @@ public class VMProcess extends UserProcess {
 
     private static final char dbgVM = 'v';
 
-    private static Lock regLock = new Lock();
+    private static Lock vmLock = new Lock();
 }
