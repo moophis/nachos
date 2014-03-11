@@ -251,6 +251,42 @@ public class VMProcess extends UserProcess {
     }
 
     /**
+     * Handle page fault. Note that this function can only be
+     * called when <tt>handleTLBMiss()</tt> fails, not directly
+     * by <tt>handleException()</tt>.
+     *
+     * @param vaddr - the virtual memory address.
+     * @return index in TLB on success, -1 on failure.
+     */
+    private int handlePageFault(int vaddr) {
+        // TODO
+        return -1;
+    }
+
+    /**
+     * Swap page from disk to physical memory.
+     *
+     * @param vpn - virtual memory page number.
+     * @return true on success, false otherwise.
+     */
+    private boolean swapIn(int vpn) {
+        // TODO
+        return false;
+    }
+
+    /**
+     * Swap page from physical memory to disk.
+     *
+     * @param vpn - virtual memory page number.
+     * @return true on success, false otherwise.
+     */
+    private boolean swapOut(int vpn) {
+        // TODO
+        return false;
+    }
+
+
+    /**
      * Handle a user exception. Called by <tt>UserKernel.exceptionHandler()</tt>
      * . The <i>cause</i> argument identifies which exception occurred; see the
      * <tt>Processor.exceptionZZZ</tt> constants.

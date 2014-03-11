@@ -33,7 +33,7 @@ public class PageTable {
 
         memLock.acquire();
         if (virtualToEntry.containsKey(vpn)) {
-            ret = (PIDEntry) virtualToEntry.get(vpn);
+            ret = virtualToEntry.get(vpn);
         }
         memLock.release();
 
@@ -62,7 +62,7 @@ public class PageTable {
 
         memLock.acquire();
         if (phyicalToEntry.containsKey(ppn)) {
-            ret = (PIDEntry) phyicalToEntry.get(ppn);
+            ret = phyicalToEntry.get(ppn);
         }
         memLock.release();
 
@@ -90,6 +90,4 @@ public class PageTable {
 
     /** Memory lock */
     private Lock memLock = new Lock();
-
-
 }
