@@ -229,25 +229,51 @@ public class VMProcess extends UserProcess {
      *           -1, if the miss cannot be handled, might be a page fault.
      */
     private int handleTLBMiss(int vaddr) {
-        // TODO: use randomlyVictimizeTLB() to replace
         int vpn = Processor.pageFromAddress(vaddr);
+        int sizeTLB = Machine.processor().getTLBSize();
+        int invalidIndex = -1;
         PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
 
         if (pe == null || pe.getEntry() == null
                 || !pe.getEntry().valid)
             return -1;  // page fault
 
-        return -1;
+
+        for(int i = 0; i < sizeTLB; i++)
+        {
+            //get entry in TLB
+            TranslationEntry te = Machine.processor().readTLBEntry(i);
+
+            //check if entry is invalid
+            if (te == null || !te.valid)
+            {
+                invalidIndex = i;
+                break;
+            }
+        }
+
+        //all entries in TLB were valid, choose randomly to replace
+        if(invalidIndex == -1)
+        {
+            return randomlyVictimizeTLB(pe.getEntry());
+        }
+        else
+        {
+            Machine.processor().writeTLBEntry(invalidIndex, pe.getEntry());
+            return invalidIndex;
+        }
     }
 
     /**
      * Randomly choose a victim TLB entry to be replaced.
      */
-    private void randomlyVictimizeTLB(TranslationEntry te) {
+    private int randomlyVictimizeTLB(TranslationEntry te) {
         int index = Lib.random(Machine.processor().getTLBSize());
 
         Lib.assertTrue(te != null && te.valid);
         Machine.processor().writeTLBEntry(index, te);
+
+        return index;
     }
 
     /**
