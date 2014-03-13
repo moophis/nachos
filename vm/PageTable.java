@@ -1,8 +1,10 @@
 package nachos.vm;
 
+import nachos.machine.TranslationEntry;
 import nachos.threads.Lock;
 
 import java.util.HashMap;
+import java.util.Iterator;
 
 /**
  * This class should handle most operations related
@@ -19,7 +21,7 @@ public class PageTable {
 
     private PageTable() {
         virtualToEntry = new HashMap<VP, PIDEntry>();
-        phyicalToEntry = new HashMap<Integer, PIDEntry>();
+        physicalToEntry = new HashMap<Integer, PIDEntry>();
     }
 
     /**
@@ -61,8 +63,8 @@ public class PageTable {
         PIDEntry ret = null;
 
         pageLock.acquire();
-        if (phyicalToEntry.containsKey(ppn)) {
-            ret = phyicalToEntry.get(ppn);
+        if (physicalToEntry.containsKey(ppn)) {
+            ret = physicalToEntry.get(ppn);
         }
         pageLock.release();
 
@@ -77,7 +79,7 @@ public class PageTable {
      */
     public void setPhysicalToEntry(int ppn, PIDEntry entry) {
         pageLock.acquire();
-        phyicalToEntry.put(ppn, entry);
+        physicalToEntry.put(ppn, entry);
         pageLock.release();
     }
 
@@ -86,15 +88,30 @@ public class PageTable {
      * @return the associated PIDEntry of the victim
      */
     public PIDEntry victimize() {
-        // TODO
-        return null;
+        // TODO: clock algorithm
+        while (true) {
+            Iterator<Integer> it = physicalToEntry.keySet().iterator();
+            while (it.hasNext()) {
+                int ppn = it.next();
+                PIDEntry pe = physicalToEntry.get(ppn);
+                TranslationEntry te = pe.getEntry();
+
+                if (te.used) { // give you another chance
+                    te.used = false;
+                    pe.setEntry(te);
+                    physicalToEntry.put(ppn, pe);
+                } else { // now you are dead...
+                    return pe;
+                }
+            }
+        }
     }
 
     /** Inverted page table <<vpn, pid>, <pid, entry>> */
     private HashMap<VP, PIDEntry> virtualToEntry = null;
 
     /** Inverted core map <paddr, <pid, entry>> */
-    private HashMap<Integer, PIDEntry> phyicalToEntry = null;
+    private HashMap<Integer, PIDEntry> physicalToEntry = null;
 
     /** Memory lock */
     private Lock pageLock = new Lock();

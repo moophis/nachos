@@ -93,14 +93,16 @@ public class VMProcess extends UserProcess {
                 if (tlbIndex == -1) {  // Page fault
                     // TODO: handle page fault
                     // expect to get a TLB index
+                    tlbIndex = handlePageFault(Processor.makeAddress(i, 0));
                 }
             }
             if (tlbIndex == -1) {
+                Lib.debug(dbgVM, "\tCannot handle page fault!");
                 return amount;
             }
 
             TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
-            if (te == null || te.valid) {
+            if ((te == null) || te.valid) {
                 return amount;
             }
 
@@ -166,9 +168,11 @@ public class VMProcess extends UserProcess {
                 if (tlbIndex == -1) {  // Page fault
                     // TODO: handle page fault
                     // expect to get a TLB index
+                    tlbIndex = handlePageFault(Processor.makeAddress(i, 0));
                 }
             }
             if (tlbIndex == -1) {
+                Lib.debug(dbgVM, "\tCannot handle page fault!");
                 return amount;
             }
 
@@ -282,12 +286,16 @@ public class VMProcess extends UserProcess {
      * by <tt>handleException()</tt>.
      *
      * @param vaddr - the virtual memory address.
-     * @return true in TLB on success, false on failure.
+     * @return index in TLB on success, -1 on failure.
      */
-    private boolean handlePageFault(int vaddr) {
+    private int handlePageFault(int vaddr) {
         int vpn = Processor.pageFromAddress(vaddr);
 
-        return swapIn(vpn, getPID());
+        if (swapIn(vpn, getPID())) {
+            return handleTLBMiss(vaddr);
+        }
+
+        return -1;
     }
 
     /**
@@ -340,6 +348,7 @@ public class VMProcess extends UserProcess {
         te.dirty = false;
         pe.setEntry(te);
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
+        pt.setPhysicalToEntry(ppn, pe);
 
         int vaddr = Processor.makeAddress(vpn, 0);
         if (writeVirtualMemory(vaddr, buf) != pageSize) {
@@ -375,7 +384,7 @@ public class VMProcess extends UserProcess {
                 return -1;
             }
 
-            SwapFile.getInstance().writePage(buf, 0, vpn, pid);
+            Lib.assertTrue(SwapFile.getInstance().writePage(buf, 0, vpn, pid) == pageSize);
         }
 
         TranslationEntry entry = outEntry.getEntry();
@@ -388,8 +397,7 @@ public class VMProcess extends UserProcess {
     }
 
     private PIDEntry nextVictimPage() {
-        // TODO: clock algorithm goes here...
-        return null;
+        return PageTable.getInstance().victimize();
     }
 
     /**
@@ -409,7 +417,9 @@ public class VMProcess extends UserProcess {
             vmLock.release();
             if (handleTLBMiss(badVAddr) == -1) {
                 // TODO: handle page fault
-                handlePageFault(badVAddr);
+                if (handlePageFault(badVAddr) == -1) {
+                    Lib.debug(dbgVM, "\tCannot handle page fault!");
+                }
             }
             break;
         default:
