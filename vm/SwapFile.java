@@ -111,27 +111,11 @@ public class SwapFile {
         if (indexMap.containsKey(targetVP)) {
             Lib.assertTrue(entryMap.containsKey(targetVP));
             int pageIndex = indexMap.get(targetVP);
-            PIDEntry pe = entryMap.get(targetVP);
-            TranslationEntry te = pe.getEntry();
+            int byteWritten = swapFile.write(pageIndex, buf, offset, pageSize);
 
-            if (te.dirty) {
-                /*
-                 * XXX: Update entry.
-                 * Note that actually we do not need to update dirty bit
-                 * in swap file entry since swapIn() does not count on
-                 * that.
-                 */
-                te.dirty = false;
-                pe.setEntry(te);
-                entryMap.put(targetVP, pe);
+            swapLock.release();
+            return byteWritten;
 
-                swapLock.release();
-                return swapFile.write(pageIndex, buf, offset, pageSize);
-            } else {
-                // the page is clean
-                swapLock.release();
-                return 0;
-            }
         } else {
             // first time that the page is swapped out
             int pageIndex = allocPage();
@@ -140,8 +124,10 @@ public class SwapFile {
             indexMap.put(targetVP, pageIndex);
             entryMap.put(targetVP, PageTable.getInstance().getEntryFromVirtual(vpn, pid));
 
+            int byteWritten = swapFile.write(pageIndex, buf, offset, pageSize);
+
             swapLock.release();
-            return swapFile.write(pageIndex, buf, offset, pageSize);
+            return byteWritten;
         }
     }
 

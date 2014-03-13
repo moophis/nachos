@@ -282,11 +282,12 @@ public class VMProcess extends UserProcess {
      * by <tt>handleException()</tt>.
      *
      * @param vaddr - the virtual memory address.
-     * @return index in TLB on success, -1 on failure.
+     * @return true in TLB on success, false on failure.
      */
-    private int handlePageFault(int vaddr) {
-        // TODO
-        return -1;
+    private boolean handlePageFault(int vaddr) {
+        int vpn = Processor.pageFromAddress(vaddr);
+
+        return swapIn(vpn, getPID());
     }
 
     /**
@@ -359,12 +360,35 @@ public class VMProcess extends UserProcess {
      *         -1 otherwise.
      */
     private int swapOut(PIDEntry outEntry) {
-        // TODO
-        return -1;
+        vmLock.acquire();
+
+        int vpn = outEntry.getEntry().vpn;
+        int pid = outEntry.getPID();
+
+        if (outEntry.getEntry().dirty) {
+            int vaddr = Processor.makeAddress(vpn, 0);
+            byte[] buf = new byte[pageSize];
+
+            if (readVirtualMemory(vaddr, buf) != pageSize) {
+                Lib.debug(dbgVM, "\tReading from memory failed!");
+                vmLock.release();
+                return -1;
+            }
+
+            SwapFile.getInstance().writePage(buf, 0, vpn, pid);
+        }
+
+        TranslationEntry entry = outEntry.getEntry();
+        entry.valid = false;
+        outEntry.setEntry(entry);
+        PageTable.getInstance().setVirtualToEntry(vpn, pid, outEntry);
+
+        vmLock.release();
+        return entry.ppn;
     }
 
     private PIDEntry nextVictimPage() {
-        // TODO
+        // TODO: clock algorithm goes here...
         return null;
     }
 
@@ -385,6 +409,7 @@ public class VMProcess extends UserProcess {
             vmLock.release();
             if (handleTLBMiss(badVAddr) == -1) {
                 // TODO: handle page fault
+                handlePageFault(badVAddr);
             }
             break;
         default:
