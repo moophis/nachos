@@ -90,10 +90,8 @@ public class VMProcess extends UserProcess {
             if (tlbIndex == -1) { // TLB miss
                 tlbIndex = handleTLBMiss(i);
 
-                if (tlbIndex == -1) {  // Page fault
-                    // TODO: handle page fault
-                    // expect to get a TLB index
-                    tlbIndex = handlePageFault(Processor.makeAddress(i, 0));
+                if (tlbIndex == -1) {
+                    handleExit(Processor.exceptionBusError);
                 }
             }
             if (tlbIndex == -1) {
@@ -165,10 +163,8 @@ public class VMProcess extends UserProcess {
             if (tlbIndex == -1) { // TLB miss
                 tlbIndex = handleTLBMiss(i);
 
-                if (tlbIndex == -1) {  // Page fault
-                    // TODO: handle page fault
-                    // expect to get a TLB index
-                    tlbIndex = handlePageFault(Processor.makeAddress(i, 0));
+                if (tlbIndex == -1) {
+                    handleExit(Processor.exceptionBusError);
                 }
             }
             if (tlbIndex == -1) {
@@ -230,7 +226,7 @@ public class VMProcess extends UserProcess {
      *
      * @param vaddr - the virtual memory address.
      * @return - index in TLB, if TLB is handled;
-     *           -1, if the miss cannot be handled, might be a page fault.
+     *           -1, if the miss cannot be handled, might be an illegal access.
      */
     private int handleTLBMiss(int vaddr) {
         int vpn = Processor.pageFromAddress(vaddr);
@@ -238,9 +234,16 @@ public class VMProcess extends UserProcess {
         int invalidIndex = -1;
         PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
 
-        if (pe == null || pe.getEntry() == null
-                || !pe.getEntry().valid)
-            return -1;  // page fault
+        if (pe == null || pe.getEntry() == null) {
+            // error case: invalid address
+            return -1;
+        }
+
+        if (!pe.getEntry().valid) {
+            // handle page fault
+            if (handlePageFault(vaddr))
+                return -1;
+        }
 
 
         for(int i = 0; i < sizeTLB; i++)
@@ -286,16 +289,12 @@ public class VMProcess extends UserProcess {
      * by <tt>handleException()</tt>.
      *
      * @param vaddr - the virtual memory address.
-     * @return index in TLB on success, -1 on failure.
+     * @return true on success, false on failure.
      */
-    private int handlePageFault(int vaddr) {
+    private boolean handlePageFault(int vaddr) {
         int vpn = Processor.pageFromAddress(vaddr);
 
-        if (swapIn(vpn, getPID())) {
-            return handleTLBMiss(vaddr);
-        }
-
-        return -1;
+        return swapIn(vpn, getPID());
     }
 
     /**
@@ -307,7 +306,6 @@ public class VMProcess extends UserProcess {
      */
     private boolean swapIn(int vpn, int pid) {
         // TODO: need a check
-        vmLock.acquire();
         PageTable pt = PageTable.getInstance();
         SwapFile sf = SwapFile.getInstance();
         Lib.assertTrue(pt != null && sf != null);
@@ -326,7 +324,6 @@ public class VMProcess extends UserProcess {
         if (ppn == -1) { // no free main memory
             if ((ppn = swapOut(nextVictimPage())) == -1) {
                 Lib.debug(dbgVM, "\tswapOut() failed: no free page!");
-                vmLock.release();
                 return false;
             }
         }
@@ -336,7 +333,6 @@ public class VMProcess extends UserProcess {
         TranslationEntry te;
         if ((pe = pt.getEntryFromVirtual(vpn, pid)) == null) {
             Lib.debug(dbgVM, "\tgetting entry failed: no such entry!");
-            vmLock.release();
             return false;
         }
 
@@ -353,11 +349,9 @@ public class VMProcess extends UserProcess {
         int vaddr = Processor.makeAddress(vpn, 0);
         if (writeVirtualMemory(vaddr, buf) != pageSize) {
             Lib.debug(dbgVM, "\tWritting to memory failed: no such entry!");
-            vmLock.release();
             return false;
         }
 
-        vmLock.release();
         return true;
     }
 
@@ -369,8 +363,6 @@ public class VMProcess extends UserProcess {
      *         -1 otherwise.
      */
     private int swapOut(PIDEntry outEntry) {
-        vmLock.acquire();
-
         int vpn = outEntry.getEntry().vpn;
         int pid = outEntry.getPID();
 
@@ -380,7 +372,7 @@ public class VMProcess extends UserProcess {
 
             if (readVirtualMemory(vaddr, buf) != pageSize) {
                 Lib.debug(dbgVM, "\tReading from memory failed!");
-                vmLock.release();
+                
                 return -1;
             }
 
@@ -392,7 +384,6 @@ public class VMProcess extends UserProcess {
         outEntry.setEntry(entry);
         PageTable.getInstance().setVirtualToEntry(vpn, pid, outEntry);
 
-        vmLock.release();
         return entry.ppn;
     }
 
@@ -411,16 +402,16 @@ public class VMProcess extends UserProcess {
         Processor processor = Machine.processor();
 
         switch (cause) {
-        case Processor.exceptionTLBMiss:
+        case Processor.exceptionTLBMiss:  // XXX: still has lock problem
             vmLock.acquire();
             int badVAddr = processor.readRegister(Processor.regBadVAddr);
-            vmLock.release();
+
             if (handleTLBMiss(badVAddr) == -1) {
-                // TODO: handle page fault
-                if (handlePageFault(badVAddr) == -1) {
-                    Lib.debug(dbgVM, "\tCannot handle page fault!");
-                }
+                // abort process
+                vmLock.release();
+                handleExit(Processor.exceptionBusError);
             }
+            vmLock.release();
             break;
         default:
             super.handleException(cause);

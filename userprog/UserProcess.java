@@ -540,7 +540,7 @@ public class UserProcess {
 	/**
 	 * Handle the halt() system call.
 	 */
-	private int handleHalt() {
+	protected int handleHalt() {
 
 		Machine.halt();
 
@@ -558,7 +558,7 @@ public class UserProcess {
 	 * @param vaddr = The virtual address of the file name
 	 * @return the new file descriptor, or -1 if there was an error
 	 */
-	private int handleCreate(int vaddr) {
+	protected int handleCreate(int vaddr) {
 		//Get the file name.
 		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
 		if(fileName != null)
@@ -591,7 +591,7 @@ public class UserProcess {
 	 * @param vaddr = The virtual address of the file name
 	 * @return fileDescriptor on success, or -1 if there was an error
 	 */
-	private int handleOpen(int vaddr) {
+	protected int handleOpen(int vaddr) {
 		//Get the file name.
 		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
 		if(fileName != null)
@@ -635,7 +635,7 @@ public class UserProcess {
 	 * @param count = number of bytes to (attempt to) read
 	 * @return number of bytes read on success, or -1 if there was an error
 	 */
-	private int handleRead(int fileDescriptor, int baddr, int count) {
+	protected int handleRead(int fileDescriptor, int baddr, int count) {
 //		System.out.println("In handleRead(): fd = " + fileDescriptor + 
 //				 " read buf @" + baddr + " count = " + count);
 		//Verify valid fileDescriptor and valid count parameters
@@ -690,7 +690,7 @@ public class UserProcess {
 	 * @param count = number of bytes to (attempt to) write
 	 * @return number of bytes written on success, or -1 if there was an error
 	 */
-	private int handleWrite(int fileDescriptor, int baddr, int count) {
+	protected int handleWrite(int fileDescriptor, int baddr, int count) {
 		Lib.debug(dbgProcess, "In handleWrite(): fd = " + fileDescriptor 
 				+ " buf addr = " + baddr + " count = " + count
 				+ " curPID = " + getPID());
@@ -747,7 +747,7 @@ public class UserProcess {
 	 * @param fileDescriptor = reference to a file
 	 * @return 0 on success, or -1 if there was an error
 	 */
-	private int handleClose(int fileDescriptor) {
+	protected int handleClose(int fileDescriptor) {
 		//Verify valid fileDescriptor
 		if((fileDescriptor > MAX_FILES - 1) || (fileDescriptor < 0))
 		{
@@ -785,7 +785,7 @@ public class UserProcess {
 	 * @param vaddr = The virtual address of the file name
 	 * @return 0 on success, or -1 if there was an error
 	 */
-	private int handleUnlink(int vaddr) {
+	protected int handleUnlink(int vaddr) {
 		//Get the string file name located at the virtual address
 		String fileName = readVirtualMemoryString(vaddr, MAX_FILENAME_LEN);
 		
@@ -828,7 +828,7 @@ public class UserProcess {
 	 * join(). On error, returns -1.
 	 * 
 	 */
-	private int handleExec(int vaddr1, int argnum, int vaddrc) {
+	protected int handleExec(int vaddr1, int argnum, int vaddrc) {
 		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
 		if (stringFile == null || !stringFile.endsWith(".coff") || argnum < 0) {
@@ -886,7 +886,7 @@ public class UserProcess {
 	 * an unhandled exception, returns 0. If processID does not refer to a child
 	 * process of the current process, returns -1.
 	 */
-	private int handleJoin(int joinpid, int statusPtr) {
+	protected int handleJoin(int joinpid, int statusPtr) {
 		Lib.debug(dbgProcess, "## In handleJoin (current pid = " +
 				getPID() + ", joinpid = " + joinpid + " status p = "
 				+ statusPtr);
@@ -963,7 +963,7 @@ public class UserProcess {
 	 *
 	 * exit() never returns.
 	 */
-	private void handleExit(int status) {
+	protected void handleExit(int status) {
 		Lib.debug(dbgProcess, "In handleExit(" + status + "), curPID = " + getPID());
 		
 		int localStatus = status;
