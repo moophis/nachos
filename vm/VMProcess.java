@@ -91,18 +91,13 @@ public class VMProcess extends UserProcess {
                 tlbIndex = handleTLBMiss(i);
 
                 if (tlbIndex == -1) {
+                    // abort
                     handleExit(Processor.exceptionBusError);
                 }
             }
-            if (tlbIndex == -1) {
-                Lib.debug(dbgVM, "\tCannot handle page fault!");
-                return amount;
-            }
 
             TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
-            if ((te == null) || te.valid) {
-                return amount;
-            }
+            Lib.assertTrue((te != null) && te.valid);
 
             int ppn = te.ppn;
             int count, off;
@@ -123,7 +118,7 @@ public class VMProcess extends UserProcess {
                     + " count=" + count);
             System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 
-            te.used = true;
+            te.used = true; // make it used
             Machine.processor().writeTLBEntry(tlbIndex, te);
 
             amount += count;
@@ -164,18 +159,13 @@ public class VMProcess extends UserProcess {
                 tlbIndex = handleTLBMiss(i);
 
                 if (tlbIndex == -1) {
+                    // abort
                     handleExit(Processor.exceptionBusError);
                 }
             }
-            if (tlbIndex == -1) {
-                Lib.debug(dbgVM, "\tCannot handle page fault!");
-                return amount;
-            }
 
             TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
-            if (te == null || te.valid) {
-                return amount;
-            }
+            Lib.assertTrue((te != null) && te.valid);
 
             int ppn = te.ppn;
             int count, off;
@@ -372,7 +362,7 @@ public class VMProcess extends UserProcess {
 
             if (readVirtualMemory(vaddr, buf) != pageSize) {
                 Lib.debug(dbgVM, "\tReading from memory failed!");
-                
+
                 return -1;
             }
 
