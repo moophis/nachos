@@ -231,7 +231,7 @@ public class VMProcess extends UserProcess {
 
         if (!pe.getEntry().valid) {
             // handle page fault
-            if (handlePageFault(vaddr))
+            if (!handlePageFault(vaddr))
                 return -1;
         }
 
@@ -336,11 +336,10 @@ public class VMProcess extends UserProcess {
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
 
-        int vaddr = Processor.makeAddress(vpn, 0);
-        if (writeVirtualMemory(vaddr, buf) != pageSize) {
-            Lib.debug(dbgVM, "\tWritting to memory failed: no such entry!");
-            return false;
-        }
+        int paddr = Processor.makeAddress(ppn, 0);
+        byte[] physicalMemory = Machine.processor().getMemory();
+
+        System.arraycopy(buf, 0, physicalMemory, paddr, pageSize);
 
         return true;
     }
@@ -353,23 +352,22 @@ public class VMProcess extends UserProcess {
      *         -1 otherwise.
      */
     private int swapOut(PIDEntry outEntry) {
-        int vpn = outEntry.getEntry().vpn;
+        TranslationEntry entry = outEntry.getEntry();
+        int vpn = entry.vpn;
+        int ppn = entry.ppn;
         int pid = outEntry.getPID();
 
-        if (outEntry.getEntry().dirty) {
-            int vaddr = Processor.makeAddress(vpn, 0);
+        if (entry.dirty) {
+            int paddr = Processor.makeAddress(ppn, 0);
+
             byte[] buf = new byte[pageSize];
+            byte[] physicalMemory = Machine.processor().getMemory();
 
-            if (readVirtualMemory(vaddr, buf) != pageSize) {
-                Lib.debug(dbgVM, "\tReading from memory failed!");
-
-                return -1;
-            }
+            System.arraycopy(physicalMemory, paddr, buf, 0, pageSize);
 
             Lib.assertTrue(SwapFile.getInstance().writePage(buf, 0, vpn, pid) == pageSize);
         }
 
-        TranslationEntry entry = outEntry.getEntry();
         entry.valid = false;
         outEntry.setEntry(entry);
         PageTable.getInstance().setVirtualToEntry(vpn, pid, outEntry);

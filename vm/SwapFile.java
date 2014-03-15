@@ -15,7 +15,6 @@ import java.util.LinkedList;
  * The Swap file data structure and basic operations.
  *
  * Created by liqiangw on 3/9/14.
- * TODO: still under construction.
  */
 public class SwapFile {
     private static SwapFile ourInstance = new SwapFile();
@@ -115,7 +114,6 @@ public class SwapFile {
 
             swapLock.release();
             return byteWritten;
-
         } else {
             // first time that the page is swapped out
             int pageIndex = allocPage();

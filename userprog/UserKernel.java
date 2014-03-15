@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import nachos.vm.SwapFile;
 
 /**
  * A kernel that can support multiple user processes.
