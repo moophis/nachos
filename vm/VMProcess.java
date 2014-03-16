@@ -146,7 +146,7 @@ public class VMProcess extends UserProcess {
         if (vaddr < 0)
             return 0;
 
-        // virtual memory: [from, to)
+        // virtual memory: [from, to]
         int fromPage = Processor.pageFromAddress(vaddr);
         int fromOffset = Processor.offsetFromAddress(vaddr);
         int toPage = Processor.pageFromAddress(vaddr + length - 1);
@@ -166,6 +166,12 @@ public class VMProcess extends UserProcess {
 
             TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
             Lib.assertTrue((te != null) && te.valid);
+
+            // check if the read-only page is to be written.
+            if (te.readOnly) {
+                // abort
+                handleExit(Processor.exceptionReadOnly);
+            }
 
             int ppn = te.ppn;
             int count, off;
@@ -209,6 +215,7 @@ public class VMProcess extends UserProcess {
      */
     protected void unloadSections() {
         super.unloadSections();
+        // TODO: unload page table entries belonging to current process.
     }
 
     /**
@@ -235,7 +242,6 @@ public class VMProcess extends UserProcess {
                 return -1;
         }
 
-
         for(int i = 0; i < sizeTLB; i++)
         {
             //get entry in TLB
@@ -252,23 +258,24 @@ public class VMProcess extends UserProcess {
         //all entries in TLB were valid, choose randomly to replace
         if(invalidIndex == -1)
         {
-            return randomlyVictimizeTLB(pe.getEntry());
+            invalidIndex = randomlyVictimizeTLB();
         }
-        else
-        {
-            Machine.processor().writeTLBEntry(invalidIndex, pe.getEntry());
-            return invalidIndex;
-        }
+
+        // write the victim entry back to page table before replacement
+        TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
+        PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
+                    getPID(), new PIDEntry(getPID(), tmpEntry));
+
+        Machine.processor().writeTLBEntry(invalidIndex, pe.getEntry());
+
+        return invalidIndex;
     }
 
     /**
      * Randomly choose a victim TLB entry to be replaced.
      */
-    private int randomlyVictimizeTLB(TranslationEntry te) {
+    private int randomlyVictimizeTLB() {
         int index = Lib.random(Machine.processor().getTLBSize());
-
-        Lib.assertTrue(te != null && te.valid);
-        Machine.processor().writeTLBEntry(index, te);
 
         return index;
     }
