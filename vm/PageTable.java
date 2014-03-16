@@ -28,6 +28,7 @@ public class PageTable {
      * Get PIDEntry from virtual memory.
      *
      * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
      */
     public PIDEntry getEntryFromVirtual(int vpn, int pid) {
         PIDEntry ret = null;
@@ -46,11 +47,26 @@ public class PageTable {
      * Associate PIDEntry with virtual memory.
      *
      * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
      * @param entry - the Translation entry with process ID.
      */
     public void setVirtualToEntry(int vpn, int pid, PIDEntry entry) {
         pageLock.acquire();
         virtualToEntry.put(new VP(vpn, pid), entry);
+        pageLock.release();
+    }
+
+    /**
+     * Delete PIDEntry associated with the virtual page.
+     * Note: this is used when the virtual page is evicted
+     * from the physical memory.
+     *
+     * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
+     */
+    public void unsetVirtualToEntry(int vpn, int pid) {
+        pageLock.acquire();
+        virtualToEntry.remove(new VP(vpn, pid));
         pageLock.release();
     }
 

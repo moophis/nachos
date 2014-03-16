@@ -135,17 +135,18 @@ public class SwapFile {
      * @param vpn - the virtual page number.
      * @param pid - the associated process ID.
      *
-     * @return <vpn, pid> pair if exists, null otherwise.
+     * @return PIDEntry if exists, null otherwise.
      */
-    public VP find(int vpn, int pid) {
+    public PIDEntry findEntryInSwap(int vpn, int pid) {
         //Create an object for input pair
         VP targetVP = new VP(vpn, pid);
 
         //If the pair exists, return it
         swapLock.acquire();
         if (indexMap.containsKey(targetVP)) {
+            PIDEntry pe = entryMap.get(targetVP);
             swapLock.release();
-            return targetVP;
+            return pe;
         }
 
         swapLock.release();

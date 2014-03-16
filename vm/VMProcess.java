@@ -191,7 +191,7 @@ public class VMProcess extends UserProcess {
 
             te.dirty = true;  // set it dirty
             te.used = true;  // set it used
-            Machine.processor().writeTLBEntry(tlbIndex, te);
+            Machine.processor().writeTLBEntry(tlbIndex, te); // write-back mechanism
 
             amount += count;
         }
@@ -325,21 +325,19 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        // form a new PIDEntry
-        PIDEntry pe;
-        TranslationEntry te;
-        if ((pe = pt.getEntryFromVirtual(vpn, pid)) == null) {
-            Lib.debug(dbgVM, "\tgetting entry failed: no such entry!");
+        // form a new PIDEntry, load it from map in SwapFile
+        PIDEntry pe = sf.findEntryInSwap(vpn, pid);
+        if (pe == null) {
             return false;
         }
+        TranslationEntry te = pe.getEntry();
 
-        te = pe.getEntry();
         te.ppn = ppn;
         te.vpn = vpn;
         te.valid = true;
         te.used = false;
         te.dirty = false;
-        pe.setEntry(te);
+        pe.setEntry(te);  // keep readOnly bit invariant
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
 
@@ -360,6 +358,7 @@ public class VMProcess extends UserProcess {
      */
     private int swapOut(PIDEntry outEntry) {
         TranslationEntry entry = outEntry.getEntry();
+        Lib.assertTrue(entry != null);
         int vpn = entry.vpn;
         int ppn = entry.ppn;
         int pid = outEntry.getPID();
@@ -375,9 +374,19 @@ public class VMProcess extends UserProcess {
             Lib.assertTrue(SwapFile.getInstance().writePage(buf, 0, vpn, pid) == pageSize);
         }
 
+        // invalidate the entry buffered in TLB if exists
         entry.valid = false;
-        outEntry.setEntry(entry);
-        PageTable.getInstance().setVirtualToEntry(vpn, pid, outEntry);
+        int index = findEntryFromTLB(vpn);
+        if (index != -1) {
+            Machine.processor().writeTLBEntry(index, entry);
+        }
+
+        /*
+         * Remove entry in the page table as page table should
+         * only contain entries of virtual page actually residing
+         * in the physical memory.
+         */
+        PageTable.getInstance().unsetVirtualToEntry(vpn, pid);
 
         return entry.ppn;
     }
