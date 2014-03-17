@@ -27,4 +27,10 @@ public class PIDEntry {
     public TranslationEntry getEntry() {
         return this.entry;
     }
+
+    public String toString() {
+        return "pid = " + " vpn = " + entry.vpn
+                + " ppn = " + entry.ppn + " readOnly = " + entry.readOnly
+                + " used = " + entry.used + " dirty = " + entry.dirty;
+    }
 }
