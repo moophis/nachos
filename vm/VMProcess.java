@@ -54,7 +54,7 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
 //        super.restoreState();
         // restore TLB if possible
         Processor proc = Machine.processor();
@@ -309,7 +309,7 @@ public class VMProcess extends UserProcess {
      *           -1, if the miss cannot be handled, might be an illegal access.
      */
     private int handleTLBMiss(int vaddr) {
-        Lib.debug(dbgVM, "In handleTLBMiss(): vaddr = " + vaddr);
+        Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr);
         int vpn = Processor.pageFromAddress(vaddr);
         int sizeTLB = Machine.processor().getTLBSize();
         int invalidIndex = -1;
@@ -413,6 +413,7 @@ public class VMProcess extends UserProcess {
         // load coff section into physical memory
         PIDEntry pe;
         TranslationEntry te;
+        // TODO: still need to handle stack and parameter page
         if (secMap.containsKey(vpn) && !secMap.get(vpn).loaded) {
             SecInfo si = secMap.get(vpn);
             si.loaded = true;
@@ -449,9 +450,11 @@ public class VMProcess extends UserProcess {
             te.dirty = false;
         }
 
+        Lib.debug(dbgVM, "\tNow set the page table entries...");
         pe.setEntry(te);
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
+        Lib.debug(dbgVM, "\tswapIn(): Exit handling...");
 
         return true;
     }

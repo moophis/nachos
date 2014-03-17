@@ -1,5 +1,6 @@
 package nachos.vm;
 
+import nachos.machine.Lib;
 import nachos.machine.TranslationEntry;
 import nachos.threads.Lock;
 
@@ -24,6 +25,13 @@ public class PageTable {
         physicalToEntry = new HashMap<Integer, PIDEntry>();
     }
 
+    private void iterateVirtualTable() {
+        Lib.debug(dbgVM, "#In iterateVirtualTable(): ");
+        for (VP vp : virtualToEntry.keySet()) {
+            Lib.debug(dbgVM, vp + "->" + virtualToEntry.get(vp).toString());
+        }
+    }
+
     /**
      * Get PIDEntry from virtual memory.
      *
@@ -31,12 +39,19 @@ public class PageTable {
      * @param pid - the associated process ID.
      */
     public PIDEntry getEntryFromVirtual(int vpn, int pid) {
+        Lib.debug(dbgVM, "#In getEntryFromVirtual(): vpn = " + vpn
+                         + " pid = " + pid);
         PIDEntry ret = null;
 
+        iterateVirtualTable();
         pageLock.acquire();
         VP vp = new VP(vpn, pid);
+
         if (virtualToEntry.containsKey(vp)) {
+            Lib.debug(dbgVM, "\t#Find key " + vp);
             ret = virtualToEntry.get(vp);
+        } else {
+            Lib.debug(dbgVM, "\t#Cannot find such entry");
         }
         pageLock.release();
 
@@ -51,8 +66,11 @@ public class PageTable {
      * @param entry - the Translation entry with process ID.
      */
     public void setVirtualToEntry(int vpn, int pid, PIDEntry entry) {
+        Lib.debug(dbgVM, "#In setEntryFromVirtual(): vpn = " + vpn
+                + " pid = " + pid);
         pageLock.acquire();
         virtualToEntry.put(new VP(vpn, pid), entry);
+        iterateVirtualTable();
         pageLock.release();
     }
 
@@ -65,6 +83,8 @@ public class PageTable {
      * @param pid - the associated process ID.
      */
     public void unsetVirtualToEntry(int vpn, int pid) {
+        Lib.debug(dbgVM, "#In unsetEntryFromVirtual(): vpn = " + vpn
+                + " pid = " + pid);
         pageLock.acquire();
         VP t = new VP(vpn, pid);
         if (virtualToEntry.containsKey(t)) {
@@ -79,6 +99,7 @@ public class PageTable {
      * @param ppn - physical memory page number.
      */
     public PIDEntry getEntryFromPhysical(int ppn) {
+        Lib.debug(dbgVM, "#In getEntryFromPhysical(): ppn = " + ppn);
         PIDEntry ret = null;
 
         pageLock.acquire();
@@ -97,6 +118,7 @@ public class PageTable {
      * @param entry - the Translation entry with process ID.
      */
     public void setPhysicalToEntry(int ppn, PIDEntry entry) {
+        Lib.debug(dbgVM, "#In getEntryFromPhysical(): ppn = " + ppn);
         pageLock.acquire();
         physicalToEntry.put(ppn, entry);
         pageLock.release();
@@ -107,6 +129,7 @@ public class PageTable {
      * @return the associated PIDEntry of the victim
      */
     public PIDEntry victimize() {
+        Lib.debug(dbgVM, "#In victimize()");
         // TODO: clock algorithm
         while (true) {
             Iterator<Integer> it = physicalToEntry.keySet().iterator();
@@ -134,4 +157,6 @@ public class PageTable {
 
     /** Memory lock */
     private Lock pageLock = new Lock();
+
+    private static final char dbgVM = 'v';
 }

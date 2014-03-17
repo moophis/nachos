@@ -28,9 +28,31 @@ public class PIDEntry {
         return this.entry;
     }
 
+    @Override
     public String toString() {
-        return "pid = " + " vpn = " + entry.vpn
+        return "pid = " + pid + " vpn = " + entry.vpn
                 + " ppn = " + entry.ppn + " readOnly = " + entry.readOnly
-                + " used = " + entry.used + " dirty = " + entry.dirty;
+                + " used = " + entry.used + " dirty = " + entry.dirty
+                + " valid = " + entry.valid;
+    }
+
+    @Override
+    public int hashCode() {
+        return toString().hashCode();
+    }
+
+    public boolean equals(Object obj) {
+        if (obj == null || !(obj instanceof PIDEntry)) {
+            return false;
+        }
+        PIDEntry that = (PIDEntry) obj;
+
+        return this.pid == that.pid &&
+               this.getEntry().vpn == that.getEntry().vpn &&
+               this.getEntry().ppn == that.getEntry().ppn &&
+               this.getEntry().valid == that.getEntry().valid &&
+               this.getEntry().dirty == that.getEntry().dirty &&
+               this.getEntry().used == that.getEntry().used &&
+               this.getEntry().readOnly == that.getEntry().readOnly;
     }
 }
