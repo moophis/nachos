@@ -5,6 +5,8 @@ import nachos.machine.Processor;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.HashMap;
+
 
 /**
  * A <tt>UserProcess</tt> that supports demand-paging.
@@ -15,7 +17,15 @@ public class VMProcess extends UserProcess {
      */
     public VMProcess() {
         super();
-        // TODO
+
+        secMap = new HashMap<Integer, SecInfo>();
+
+        int tlbSize = Machine.processor().getTLBSize();
+        tlbBackUp = new TranslationEntry[tlbSize];
+
+        for (int i = 0; i < tlbSize; i++) {
+            tlbBackUp[i] = new TranslationEntry(0, 0, false, false, false, false);
+        }
     }
 
     /**
@@ -23,8 +33,20 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
+        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
         super.saveState();
-        // TODO
+        // save TLB
+        Processor proc = Machine.processor();
+        PageTable pt = PageTable.getInstance();
+        for (int i = 0; i < proc.getTLBSize(); i++) {
+            tlbBackUp[i] = proc.readTLBEntry(i);
+            if (tlbBackUp[i].valid) {
+                // write back to page table
+                TranslationEntry tmpEntry = tlbBackUp[i];
+                pt.setVirtualToEntry(tmpEntry.vpn,
+                        getPID(), new PIDEntry(getPID(), tmpEntry));
+            }
+        }
     }
 
     /**
@@ -32,8 +54,22 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
+        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
         super.restoreState();
-        // TODO
+        // restore TLB if possible
+        Processor proc = Machine.processor();
+        PageTable pt = PageTable.getInstance();
+        for (int i = 0; i < proc.getTLBSize(); i++) {
+            PIDEntry pe = null;
+            if (tlbBackUp[i].valid) {
+                pe = pt.getEntryFromVirtual(tlbBackUp[i].vpn, getPID());
+            }
+            if (pe == null) {
+                proc.writeTLBEntry(i, new TranslationEntry(0, 0, false, false, false, false));
+            } else {
+                proc.writeTLBEntry(i, pe.getEntry());
+            }
+        }
     }
 
     /**
@@ -207,6 +243,37 @@ public class VMProcess extends UserProcess {
      */
     protected boolean loadSections() {
         // TODO: for task 3
+        vmLock.acquire();
+        int pagesCount = 0;
+        int vpn = -1;
+
+        // register sections
+        for (int s = 0; s < coff.getNumSections(); s++) {
+            CoffSection cs = coff.getSection(s);
+            boolean ro = cs.isReadOnly();
+
+            for (int i = 0; i < cs.getLength(); i++) {
+                vpn = cs.getFirstVPN() + i;
+
+                /*
+                 * Here we only register the pages without
+                 * actually loading them into memory.
+                 */
+                secMap.put(vpn, new SecInfo(s, i, ro, false));
+                pagesCount++;
+            }
+        }
+
+        // register stack pages and the parameter page
+        // XXX: do we really need this?
+//        int residue = numPages - pagesCount;
+//        Lib.assertTrue(residue == stackPages + 1); // 8 stack pages + 1 parameter page
+//        for (int i = 0; i < residue - 1; i++) {
+//            secMap.put(++vpn, new SecInfo(-1, i, false, false));
+//        }
+//        secMap.put(++vpn, new SecInfo(-2, 0, false, false));
+
+        vmLock.release();
         return super.loadSections();
     }
 
@@ -216,6 +283,15 @@ public class VMProcess extends UserProcess {
     protected void unloadSections() {
         super.unloadSections();
         // TODO: unload page table entries belonging to current process.
+        vmLock.acquire();
+
+        PageTable pt = PageTable.getInstance();
+        int pid = getPID();
+        for (Integer v : secMap.keySet()) {
+            pt.unsetVirtualToEntry(v, pid);
+        }
+
+        vmLock.release();
     }
 
     /**
@@ -231,23 +307,21 @@ public class VMProcess extends UserProcess {
         int invalidIndex = -1;
         PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
 
-        if (pe == null || pe.getEntry() == null) {
-            // error case: invalid address
-            return -1;
-        }
-
-        if (!pe.getEntry().valid) {
+        if (pe == null) {
             // handle page fault
             if (!handlePageFault(vaddr))
                 return -1;
+            // reload entry from page table
+            pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
         }
+        Lib.assertTrue(pe != null && pe.getEntry().valid);
 
-        for(int i = 0; i < sizeTLB; i++)
+        for (int i = 0; i < sizeTLB; i++)
         {
-            //get entry in TLB
+            // get entry in TLB
             TranslationEntry te = Machine.processor().readTLBEntry(i);
 
-            //check if entry is invalid
+            // check if entry is invalid
             if (te == null || !te.valid)
             {
                 invalidIndex = i;
@@ -256,16 +330,18 @@ public class VMProcess extends UserProcess {
         }
 
         //all entries in TLB were valid, choose randomly to replace
-        if(invalidIndex == -1)
+        if (invalidIndex == -1)
         {
             invalidIndex = randomlyVictimizeTLB();
+
+            // write the victim entry back to page table before replacement
+            TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
+            PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
+                    getPID(), new PIDEntry(getPID(), tmpEntry));
+            // note that we do no need to write back the invalid entry to page table
         }
 
-        // write the victim entry back to page table before replacement
-        TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
-        PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
-                    getPID(), new PIDEntry(getPID(), tmpEntry));
-
+        // write the new TLB entry
         Machine.processor().writeTLBEntry(invalidIndex, pe.getEntry());
 
         return invalidIndex;
@@ -307,12 +383,6 @@ public class VMProcess extends UserProcess {
         SwapFile sf = SwapFile.getInstance();
         Lib.assertTrue(pt != null && sf != null);
 
-        byte[] buf = new byte[pageSize];
-        if (sf.readPage(buf, 0, vpn, pid) != pageSize) {
-            Lib.debug(dbgVM, "\tReading page from swap failed!");
-            return false;
-        }
-
         // find free slot in main memory
         int ppn = -1;
         if (UserKernel.freePages.size() > 0) {
@@ -325,26 +395,45 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        // form a new PIDEntry, load it from map in SwapFile
-        PIDEntry pe = sf.findEntryInSwap(vpn, pid);
-        if (pe == null) {
-            return false;
-        }
-        TranslationEntry te = pe.getEntry();
+        // load coff section into physical memory
+        PIDEntry pe;
+        TranslationEntry te;
+        if (secMap.containsKey(vpn) && !secMap.get(vpn).loaded) {
+            SecInfo si = secMap.get(vpn);
+            si.loaded = true;
+            coff.getSection(si.ipn).loadPage(si.ipn, ppn);
 
-        te.ppn = ppn;
-        te.vpn = vpn;
-        te.valid = true;
-        te.used = false;
-        te.dirty = false;
-        pe.setEntry(te);  // keep readOnly bit invariant
+            // update page table
+            te = new TranslationEntry(vpn, ppn, true, si.readOnly, true, true);
+            pe = new PIDEntry(getPID(), te);
+        } else {
+            int paddr = Processor.makeAddress(ppn, 0);
+            byte[] physicalMemory = Machine.processor().getMemory();
+            byte[] buf = new byte[pageSize];
+            if (sf.readPage(buf, 0, vpn, pid) != pageSize) {
+                Lib.debug(dbgVM, "\tReading page from swap failed!");
+                return false;
+            }
+
+            System.arraycopy(buf, 0, physicalMemory, paddr, pageSize);
+
+            pe = sf.findEntryInSwap(vpn, pid);
+            if (pe == null) {
+                return false;
+            }
+
+            // keep readOnly bit invariant
+            te = pe.getEntry();
+            te.ppn = ppn;
+            te.vpn = vpn;
+            te.valid = true;
+            te.used = true;
+            te.dirty = false;
+        }
+
+        pe.setEntry(te);
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
-
-        int paddr = Processor.makeAddress(ppn, 0);
-        byte[] physicalMemory = Machine.processor().getMemory();
-
-        System.arraycopy(buf, 0, physicalMemory, paddr, pageSize);
 
         return true;
     }
@@ -430,4 +519,25 @@ public class VMProcess extends UserProcess {
     private static final char dbgVM = 'v';
 
     private static Lock vmLock = new Lock();
+
+    /** Backup TLB entries. */
+    private TranslationEntry[] tlbBackUp = null;
+
+    /** Section map: <section page vpn, SecInfo>. */
+    private HashMap<Integer, SecInfo> secMap = null;
+
+    /** Coff section information. */
+    private class SecInfo {
+        public int spn;  // section number
+        public int ipn;  // page number within a section
+        public boolean readOnly;
+        public boolean loaded = false;
+
+        public SecInfo(int spn, int ipn, boolean readOnly, boolean loaded) {
+            this.spn = spn;
+            this.ipn = ipn;
+            this.readOnly = readOnly;
+            this.loaded = loaded;
+        }
+    }
 }

@@ -1196,33 +1196,33 @@ public class UserProcess {
 	private static int totalProcess = 0;
 	
 	/** Process ID */
-	private int pid;
-	
-	private int waitjoinpid;
-	
-	private int VtoSmaxLength = 256;
+    private int pid;
+
+    private int waitjoinpid;
+
+    private int VtoSmaxLength = 256;
 	
 	/** Accumulated PID */
-	private static int pidAccumulated = 0;
+    private static int pidAccumulated = 0;
 	
 	/** The underlying UThread corresponding to the process */
-	private UThread thread = null;
+    private UThread thread = null;
 	
 	/** The parent of the current process. */
-	private UserProcess parent = null;
+    private UserProcess parent = null;
 	
 	/** The children of the current process: <PID, UserProcess>. */
-	private HashMap<Integer, UserProcess> children = null;
+    private HashMap<Integer, UserProcess> children = null;
 	
 	/** Exit status for each child: <Child PID, exit status> */
-	public HashMap<Integer, Integer> endedChildren = null;
+    private HashMap<Integer, Integer> endedChildren = null;
 	
 	/** Maximum file length */
-	private static final int MAX_FILENAME_LEN = 256;
+    private static final int MAX_FILENAME_LEN = 256;
 	
 	/** Opened files. */
-	private final int MAX_FILES = 16;
-	private OpenFile openedFiles[] = new OpenFile[MAX_FILES];
+    private final int MAX_FILES = 16;
+    private OpenFile openedFiles[] = new OpenFile[MAX_FILES];
 	
 	/** A map from virtual memory to Translation entry: <vaddr, TranslationEntry>. */
 	private HashMap<Integer, TranslationEntry> virtualToTransEntry = null;
@@ -1233,6 +1233,6 @@ public class UserProcess {
 	private static Lock joinLock = new Lock();
 	
 	/** Console file: standard input & standard output */
-	private OpenFile stdin = null;
-	private OpenFile stdout = null;
+    private OpenFile stdin = null;
+    private OpenFile stdout = null;
 }

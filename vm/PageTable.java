@@ -66,7 +66,10 @@ public class PageTable {
      */
     public void unsetVirtualToEntry(int vpn, int pid) {
         pageLock.acquire();
-        virtualToEntry.remove(new VP(vpn, pid));
+        VP t = new VP(vpn, pid);
+        if (virtualToEntry.containsKey(t)) {
+            virtualToEntry.remove(t);
+        }
         pageLock.release();
     }
 
