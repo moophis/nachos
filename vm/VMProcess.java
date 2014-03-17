@@ -280,7 +280,7 @@ public class VMProcess extends UserProcess {
 //        secMap.put(++vpn, new SecInfo(-2, 0, false, false));
 
         vmLock.release();
-        return super.loadSections();
+        return true;
     }
 
     /**
@@ -399,14 +399,16 @@ public class VMProcess extends UserProcess {
         int ppn = -1;
         if (UserKernel.freePages.size() > 0) {
             ppn = UserKernel.freePages.poll();
+            Lib.debug(dbgVM, "\tswapIn(): find free ppn = " + ppn);
         }
         if (ppn == -1) { // no free main memory
+            Lib.debug(dbgVM, "\tswapIn(): cannot find free physical memory");
             if ((ppn = swapOut(nextVictimPage())) == -1) {
                 Lib.debug(dbgVM, "\tswapOut() failed: no free page!");
                 return false;
             }
         }
-        Lib.debug(dbgVM, "\tswapOut(): find new page: ppn = " + ppn);
+        Lib.debug(dbgVM, "\tswapIn(): find new page: ppn = " + ppn);
 
         // load coff section into physical memory
         PIDEntry pe;
@@ -417,7 +419,7 @@ public class VMProcess extends UserProcess {
 
             Lib.debug(dbgVM, "\tload Coff section: sec " + si.spn
                     + " subpage " + si.ipn);
-            coff.getSection(si.ipn).loadPage(si.ipn, ppn);
+            coff.getSection(si.spn).loadPage(si.ipn, ppn);
 
             // update page table
             te = new TranslationEntry(vpn, ppn, true, si.readOnly, true, true);
