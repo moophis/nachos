@@ -26,10 +26,10 @@ public class PageTable {
     }
 
     private void iterateVirtualTable() {
-        Lib.debug(dbgVM, "#In iterateVirtualTable(): ");
-        for (VP vp : virtualToEntry.keySet()) {
-            Lib.debug(dbgVM, vp + "->" + virtualToEntry.get(vp).toString());
-        }
+//        Lib.debug(dbgVM, "#In iterateVirtualTable(): ");
+//        for (VP vp : virtualToEntry.keySet()) {
+//            Lib.debug(dbgVM, vp + "->" + virtualToEntry.get(vp).toString());
+//        }
     }
 
     /**
@@ -66,7 +66,7 @@ public class PageTable {
      * @param entry - the Translation entry with process ID.
      */
     public void setVirtualToEntry(int vpn, int pid, PIDEntry entry) {
-        Lib.debug(dbgVM, "#In setEntryFromVirtual(): vpn = " + vpn
+        Lib.debug(dbgVM, "#In setEntryToVirtual(): vpn = " + vpn
                 + " pid = " + pid);
 //        pageLock.acquire();
         if (entry != null) {
@@ -90,6 +90,7 @@ public class PageTable {
 //        pageLock.acquire();
         VP t = new VP(vpn, pid);
         if (virtualToEntry.containsKey(t)) {
+            Lib.debug(dbgVM, "\tContains key...");
             virtualToEntry.remove(t);
         }
 //        pageLock.release();
@@ -120,7 +121,7 @@ public class PageTable {
      * @param entry - the Translation entry with process ID.
      */
     public void setPhysicalToEntry(int ppn, PIDEntry entry) {
-        Lib.debug(dbgVM, "#In getEntryFromPhysical(): ppn = " + ppn);
+        Lib.debug(dbgVM, "#In setPhysicalToEntry(): ppn = " + ppn);
         pageLock.acquire();
         physicalToEntry.put(ppn, entry);
         pageLock.release();

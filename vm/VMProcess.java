@@ -47,6 +47,8 @@ public class VMProcess extends UserProcess {
                         getPID(), new PIDEntry(getPID(), tmpEntry));
             }
         }
+
+        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
     }
 
     /**
@@ -124,10 +126,11 @@ public class VMProcess extends UserProcess {
                 + fromOffset + ") to (page " + toPage + " offset " + toOffset + ")");
 
         for (int i = fromPage; i <= toPage; i++) {
+            int iAddr = Processor.makeAddress(i, 0);
             int tlbIndex = findEntryFromTLB(i);
 
             if (tlbIndex == -1) { // TLB miss
-                tlbIndex = handleTLBMiss(i);
+                tlbIndex = handleTLBMiss(iAddr);
 
                 if (tlbIndex == -1) {
                     // abort
@@ -193,10 +196,11 @@ public class VMProcess extends UserProcess {
         int toOffset = Processor.offsetFromAddress(vaddr + length - 1);
 
         for (int i = fromPage; i <= toPage; i++) {
+            int iAddr = Processor.makeAddress(i, 0);
             int tlbIndex = findEntryFromTLB(i);
 
             if (tlbIndex == -1) { // TLB miss
-                tlbIndex = handleTLBMiss(i);
+                tlbIndex = handleTLBMiss(iAddr);
 
                 if (tlbIndex == -1) {
                     // abort
@@ -211,6 +215,7 @@ public class VMProcess extends UserProcess {
             // check if the read-only page is to be written.
             if (te.readOnly) {
                 // abort
+                Lib.debug(dbgProcess, "\tTry to write readOnly page " + i);
                 handleExit(Processor.exceptionReadOnly);
             }
 
@@ -287,7 +292,7 @@ public class VMProcess extends UserProcess {
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
-        super.unloadSections();
+        //super.unloadSections();
         // TODO: unload page table entries belonging to current process.
         Lib.debug(dbgVM, "(vm)In unloadSections():");
         vmLock.acquire();

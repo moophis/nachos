@@ -832,6 +832,7 @@ public class UserProcess {
 		Lib.debug(dbgProcess, "## In handleExec(): argc = " + argnum + " argv addr: " + vaddrc);
 		String stringFile = readVirtualMemoryString(vaddr1, VtoSmaxLength);
 		if (stringFile == null || !stringFile.endsWith(".coff") || argnum < 0) {
+            Lib.debug(dbgProcess, "\tCannot open file: " + stringFile);
 			return -1;
 		}
 		Lib.debug(dbgProcess, "\tProgram name: " + stringFile);
