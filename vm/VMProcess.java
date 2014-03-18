@@ -33,7 +33,7 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
-        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+//        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
 
         // save TLB
         Processor proc = Machine.processor();
@@ -48,7 +48,7 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
+//        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
     }
 
     /**
@@ -56,8 +56,8 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
-//        super.restoreState();
+//        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
+
         // restore TLB if possible
         Processor proc = Machine.processor();
         PageTable pt = PageTable.getInstance();
@@ -81,7 +81,7 @@ public class VMProcess extends UserProcess {
      * @return the index of TLB, if not found return -1.
      */
     private int findEntryFromTLB(int vpn) {
-        Lib.debug(dbgVM, "In findEntryFromTLB: vpn = " + vpn);
+//        Lib.debug(dbgVM, "In findEntryFromTLB: vpn = " + vpn);
         int size = Machine.processor().getTLBSize();
 
         for (int i = 0; i < size; i++) {
@@ -89,7 +89,7 @@ public class VMProcess extends UserProcess {
 
             // find the entry in TLB
             if (te != null && te.valid && te.vpn == vpn) {
-                Lib.debug(dbgVM, "\tFind index:  " + i);
+//                Lib.debug(dbgVM, "\tFind index:  " + i);
                 return i;
             }
         }
@@ -179,9 +179,9 @@ public class VMProcess extends UserProcess {
     public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
         Lib.assertTrue(offset >= 0 && length >= 0
                 && offset + length <= data.length);
-//		Lib.debug(dbgProcess, "In writeVirtualMemory: vaddr=" + vaddr + ", byte len="
-//				+ data.length + ", beginning offset=" + offset + ", length=" + length
-//				+ " current pid = " + getPID());
+		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
+				+ data.length + ", beginning offset=" + offset + ", length=" + length
+				+ " current pid = " + getPID());
 
         byte[] physicalMemory = Machine.processor().getMemory();
         int amount = 0;
@@ -262,6 +262,11 @@ public class VMProcess extends UserProcess {
         for (int s = 0; s < coff.getNumSections(); s++) {
             CoffSection cs = coff.getSection(s);
             boolean ro = cs.isReadOnly();
+            Lib.debug(dbgVM, "\tSection " + s + ": " + cs.getName()
+                        + ", readOnly: " + cs.isReadOnly()
+                        + ", initialized: " + cs.isInitialzed()
+                        + ", firstVPN: " + cs.getFirstVPN()
+                        + ", secLength: " + cs.getLength());
 
             for (int i = 0; i < cs.getLength(); i++) {
                 vpn = cs.getFirstVPN() + i;
@@ -314,7 +319,8 @@ public class VMProcess extends UserProcess {
      *           -1, if the miss cannot be handled, might be an illegal access.
      */
     private int handleTLBMiss(int vaddr) {
-        Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr);
+        Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr
+                    + ", pid = " + getPID());
         int vpn = Processor.pageFromAddress(vaddr);
         int sizeTLB = Machine.processor().getTLBSize();
         int invalidIndex = -1;
@@ -422,6 +428,8 @@ public class VMProcess extends UserProcess {
         if (secMap.containsKey(vpn) && !secMap.get(vpn).loaded) {
             SecInfo si = secMap.get(vpn);
             si.loaded = true;
+            secMap.put(vpn, si);  // update the map
+            Lib.assertTrue(secMap.get(vpn).loaded == true);
 
             Lib.debug(dbgVM, "\tload Coff section: sec " + si.spn
                     + " subpage " + si.ipn);
@@ -451,12 +459,12 @@ public class VMProcess extends UserProcess {
             System.arraycopy(buf, 0, physicalMemory, paddr, pageSize);
 
             pe = sf.findEntryInSwap(vpn, pid);
-            if (pe == null) {
-                return false;
-            }
+            Lib.assertTrue(pe != null);
+            Lib.debug(dbgVM, "\tLoading from swap file: " + pe);
 
             // keep readOnly bit invariant
             te = pe.getEntry();
+            Lib.assertTrue(te != null);
             te.ppn = ppn;
             te.vpn = vpn;
             te.valid = true;
@@ -468,6 +476,7 @@ public class VMProcess extends UserProcess {
         pe.setEntry(te);
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
+        pt.iterateVirtualTable();
         Lib.debug(dbgVM, "\tswapIn(): Exit handling...");
 
         return true;

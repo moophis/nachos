@@ -119,6 +119,10 @@ public class SwapFile {
             int pageIndex = allocPage();
             Lib.assertTrue(pageIndex >= 0);
 
+            /*
+             * Update the swap map.
+             * Note that we only need readOnly bit, others are not necessary.
+             */
             indexMap.put(targetVP, pageIndex);
             entryMap.put(targetVP, PageTable.getInstance().getEntryFromVirtual(vpn, pid));
 
