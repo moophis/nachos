@@ -44,7 +44,7 @@ public class PageTable {
         PIDEntry ret = null;
 
         iterateVirtualTable();
-        pageLock.acquire();
+//        pageLock.acquire();
         VP vp = new VP(vpn, pid);
 
         if (virtualToEntry.containsKey(vp)) {
@@ -53,7 +53,7 @@ public class PageTable {
         } else {
             Lib.debug(dbgVM, "\t#Cannot find such entry");
         }
-        pageLock.release();
+//        pageLock.release();
 
         return ret;
     }
@@ -68,10 +68,12 @@ public class PageTable {
     public void setVirtualToEntry(int vpn, int pid, PIDEntry entry) {
         Lib.debug(dbgVM, "#In setEntryFromVirtual(): vpn = " + vpn
                 + " pid = " + pid);
-        pageLock.acquire();
-        virtualToEntry.put(new VP(vpn, pid), entry);
+//        pageLock.acquire();
+        if (entry != null) {
+            virtualToEntry.put(new VP(vpn, pid), entry);
+        }
         iterateVirtualTable();
-        pageLock.release();
+//        pageLock.release();
     }
 
     /**
@@ -85,12 +87,12 @@ public class PageTable {
     public void unsetVirtualToEntry(int vpn, int pid) {
         Lib.debug(dbgVM, "#In unsetEntryFromVirtual(): vpn = " + vpn
                 + " pid = " + pid);
-        pageLock.acquire();
+//        pageLock.acquire();
         VP t = new VP(vpn, pid);
         if (virtualToEntry.containsKey(t)) {
             virtualToEntry.remove(t);
         }
-        pageLock.release();
+//        pageLock.release();
     }
 
     /**

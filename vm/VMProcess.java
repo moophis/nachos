@@ -272,12 +272,12 @@ public class VMProcess extends UserProcess {
 
         // register stack pages and the parameter page
         // XXX: do we really need this?
-//        int residue = numPages - pagesCount;
-//        Lib.assertTrue(residue == stackPages + 1); // 8 stack pages + 1 parameter page
-//        for (int i = 0; i < residue - 1; i++) {
-//            secMap.put(++vpn, new SecInfo(-1, i, false, false));
-//        }
-//        secMap.put(++vpn, new SecInfo(-2, 0, false, false));
+        int residue = numPages - pagesCount;
+        Lib.assertTrue(residue == stackPages + 1); // 8 stack pages + 1 parameter page
+        for (int i = 0; i < residue - 1; i++) {
+            secMap.put(++vpn, new SecInfo(-1, i, false, false));
+        }
+        secMap.put(++vpn, new SecInfo(-2, 0, false, false));
 
         vmLock.release();
         return true;
@@ -420,7 +420,16 @@ public class VMProcess extends UserProcess {
 
             Lib.debug(dbgVM, "\tload Coff section: sec " + si.spn
                     + " subpage " + si.ipn);
-            coff.getSection(si.spn).loadPage(si.ipn, ppn);
+            if (si.spn >= 0) {
+                // load regular coff sections
+                Lib.debug(dbgVM, "\tloading regular pages: spn = "
+                        + si.spn + ", ipn = " + si.ipn);
+                coff.getSection(si.spn).loadPage(si.ipn, ppn);
+            } else {
+                // stack pages or the parameter page
+                Lib.debug(dbgVM, "\tloading stack pages or parameters: spn = "
+                        + si.spn + ", ipn = " + si.ipn);
+            }
 
             // update page table
             te = new TranslationEntry(vpn, ppn, true, si.readOnly, true, true);
