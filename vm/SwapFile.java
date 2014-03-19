@@ -81,7 +81,7 @@ public class SwapFile {
             int pageIndex = indexMap.get(targetVP);
 
             swapLock.release();
-            return swapFile.read(pageIndex, buf, offset, pageSize);
+            return swapFile.read(pageIndex * pageSize, buf, offset, pageSize);
         }
 
         swapLock.release();
@@ -126,7 +126,7 @@ public class SwapFile {
             indexMap.put(targetVP, pageIndex);
             entryMap.put(targetVP, PageTable.getInstance().getEntryFromVirtual(vpn, pid));
 
-            int byteWritten = swapFile.write(pageIndex, buf, offset, pageSize);
+            int byteWritten = swapFile.write(pageIndex * pageSize, buf, offset, pageSize);
 
             swapLock.release();
             return byteWritten;

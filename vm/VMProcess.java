@@ -33,7 +33,7 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
-//        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
 
         // save TLB
         Processor proc = Machine.processor();
@@ -56,7 +56,7 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-//        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
+        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
 
         // restore TLB if possible
         Processor proc = Machine.processor();
@@ -305,7 +305,15 @@ public class VMProcess extends UserProcess {
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
         for (Integer v : secMap.keySet()) {
+            int ppn = -1;
+            if (pt.getEntryFromVirtual(v, pid) != null) {
+                ppn = pt.getEntryFromVirtual(v, pid).getEntry().ppn;
+            }
+
             pt.unsetVirtualToEntry(v, pid);
+            if (ppn != -1) {
+                pt.unsetPhysicalToEntry(ppn, pid);
+            }
         }
 
         vmLock.release();
@@ -365,6 +373,8 @@ public class VMProcess extends UserProcess {
         // write the new TLB entry
         Machine.processor().writeTLBEntry(invalidIndex, pe.getEntry());
 
+        Lib.debug(dbgVM, "--- Leaving handleTLBMiss(): vaddr = " + vaddr
+                + ", pid = " + getPID() + ", TLB index = " + invalidIndex);
         return invalidIndex;
     }
 
@@ -429,7 +439,7 @@ public class VMProcess extends UserProcess {
             SecInfo si = secMap.get(vpn);
             si.loaded = true;
             secMap.put(vpn, si);  // update the map
-            Lib.assertTrue(secMap.get(vpn).loaded == true);
+            Lib.assertTrue(secMap.get(vpn).loaded);
 
             Lib.debug(dbgVM, "\tload Coff section: sec " + si.spn
                     + " subpage " + si.ipn);
@@ -554,6 +564,7 @@ public class VMProcess extends UserProcess {
                 handleExit(Processor.exceptionBusError);
             }
             vmLock.release();
+            Lib.debug(dbgVM, "After handling TLB miss exception...");
             break;
         default:
             super.handleException(cause);

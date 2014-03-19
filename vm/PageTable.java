@@ -83,7 +83,7 @@ public class PageTable {
      * @param pid - the associated process ID.
      */
     public void unsetVirtualToEntry(int vpn, int pid) {
-        Lib.debug(dbgPT, "#In unsetEntryFromVirtual(): vpn = " + vpn
+        Lib.debug(dbgPT, "#In VirtualToEntry(): vpn = " + vpn
                 + " pid = " + pid);
 //        pageLock.acquire();
         VP t = new VP(vpn, pid);
@@ -123,6 +123,25 @@ public class PageTable {
         pageLock.acquire();
         physicalToEntry.put(ppn, entry);
         pageLock.release();
+    }
+
+    /**
+     * Delete PIDEntry associated with the physical page.
+     * Note: this is used when the associated virtual page
+     * is evicted from the physical memory.
+     *
+     * @param ppn - physical memory page number.
+     * @param pid - the associated process ID.
+     */
+    public void unsetPhysicalToEntry(int ppn, int pid) {
+        Lib.debug(dbgPT, "#In unsetPhysicalToEntry(): ppn = " + ppn
+                + " pid = " + pid);
+//        pageLock.acquire();
+        if (physicalToEntry.containsKey(ppn)) {
+            Lib.debug(dbgPT, "\tContains key...");
+            physicalToEntry.remove(ppn);
+        }
+//        pageLock.release();
     }
 
     /**
