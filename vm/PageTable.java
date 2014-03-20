@@ -153,6 +153,38 @@ public class PageTable {
     }
 
     /**
+     * Set an entry into both virtual table and physical table.
+     *
+     * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
+     * @param te  - the associated translation entry.
+     */
+    public void set(int vpn, int pid, TranslationEntry te) {
+        if (vpn < 0 || pid < 0 || te == null)
+            return;
+
+        PIDEntry pe = new PIDEntry(pid, te);
+        setVirtualToEntry(vpn, pid, pe);
+        setPhysicalToEntry(te.ppn, pe);
+    }
+
+    /**
+     * Remove an entry from both virtual table and physical table.
+     *
+     * @param vpn - virtual memory page number.
+     * @param pid - the associated process ID.
+     * @param te  - the associated translation entry.
+     */
+    public void remove(int vpn, int pid, TranslationEntry te) {
+        if (vpn < 0 || pid < 0 || te == null)
+            return;
+
+        PIDEntry pe = new PIDEntry(pid, te);
+        unsetVirtualToEntry(vpn, pid);
+        unsetPhysicalToEntry(te.ppn, pid);
+    }
+
+    /**
      * Choose a victim page using clock algorithm.
      * @return the associated PIDEntry of the victim
      */
