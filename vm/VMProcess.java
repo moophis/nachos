@@ -33,7 +33,7 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
-        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+//        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
 
         // save TLB
         Processor proc = Machine.processor();
@@ -57,7 +57,7 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
+//        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
 
         // restore TLB if possible
         Processor proc = Machine.processor();
@@ -186,9 +186,9 @@ public class VMProcess extends UserProcess {
     public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
         Lib.assertTrue(offset >= 0 && length >= 0
                 && offset + length <= data.length);
-		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
-				+ data.length + ", beginning offset=" + offset + ", length=" + length
-				+ " current pid = " + getPID());
+//		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
+//				+ data.length + ", beginning offset=" + offset + ", length=" + length
+//				+ " current pid = " + getPID());
 
         vmLock.acquire();
 
@@ -311,7 +311,7 @@ public class VMProcess extends UserProcess {
         //super.unloadSections();
         // TODO: unload page table entries belonging to current process.
         Lib.debug(dbgVM, "(vm)In unloadSections():");
-        vmLock.acquire();
+//        vmLock.acquire();
 
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
@@ -327,7 +327,13 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        vmLock.release();
+        Lib.debug(dbgVM, "\tPageTables after unloadSections:");
+        pt.iterateVirtualTable();
+        pt.iteratePhysicalTable();
+
+        coff.close();
+
+//        vmLock.release();
     }
 
     /**
@@ -569,7 +575,8 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        PIDEntry victim = PageTable.getInstance().victimize();
+//        PIDEntry victim = PageTable.getInstance().victimize();
+        PIDEntry victim = PageTable.getInstance().randVictimize();
         Lib.debug(dbgVM, "\tvictim: " + victim);
         return victim;
     }

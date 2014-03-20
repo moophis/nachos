@@ -1,5 +1,6 @@
 package nachos.vm;
 
+import nachos.machine.Interrupt;
 import nachos.machine.Lib;
 import nachos.machine.TranslationEntry;
 import nachos.threads.Lock;
@@ -191,6 +192,25 @@ public class PageTable {
                 }
             }
         }
+    }
+
+    /**
+     * Choose a victim page using random algorithm.
+     * @return the associated PIDEntry of the victim
+     */
+    public PIDEntry randVictimize() {
+        int len = physicalToEntry.size();
+        PIDEntry ret = null;
+
+        do {
+            int index = Lib.random(len);
+
+            if (physicalToEntry.containsKey(index)) {
+                ret = physicalToEntry.get(index);
+            }
+        } while (ret == null || !ret.getEntry().valid);
+
+        return ret;
     }
 
     /** Inverted page table <<vpn, pid>, <pid, entry>> */
