@@ -313,6 +313,10 @@ public class VMProcess extends UserProcess {
         Lib.debug(dbgVM, "(vm)In unloadSections():");
 //        vmLock.acquire();
 
+        // invalidate current TLB entries in order not to influence
+        // the following processes.
+        invalidateAllTLB();
+
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
         for (Integer v : secMap.keySet()) {
@@ -321,9 +325,19 @@ public class VMProcess extends UserProcess {
                 ppn = pt.getEntryFromVirtual(v, pid).getEntry().ppn;
             }
 
-            pt.unsetVirtualToEntry(v, pid);
             if (ppn != -1) {
+                pt.unsetVirtualToEntry(v, pid);
                 pt.unsetPhysicalToEntry(ppn, pid);
+
+                // reclaim the physical page
+                UserKernel.fpLock.acquire();
+                Lib.debug(dbgVM, "\tReclaim page pid = " + pid +
+                        " vpn = " + v + " ppn = " + ppn);
+                pt.iterateVirtualTable();
+                pt.iteratePhysicalTable();
+
+                UserKernel.freePages.add(ppn);
+                UserKernel.fpLock.release();
             }
         }
 
@@ -334,6 +348,23 @@ public class VMProcess extends UserProcess {
         coff.close();
 
 //        vmLock.release();
+    }
+
+    /**
+     * Invalidate all TLB entry.
+     * Only used on termination.
+     */
+    private void invalidateAllTLB() {
+        Lib.debug(dbgVM, "In invalidateAllTLB(), pid = " + getPID());
+        int tlbSize = Machine.processor().getTLBSize();
+        Processor proc = Machine.processor();
+
+        for (int i = 0; i < tlbSize; i++) {
+            Lib.debug(dbgVM, "\tOld TLB(" + i + "): vpn = " +
+                    proc.readTLBEntry(i).vpn + ", ppn = " +
+                    proc.readTLBEntry(i).ppn);
+            proc.writeTLBEntry(i, new TranslationEntry(0, 0, false, false, false, false));
+        }
     }
 
     /**
@@ -438,8 +469,10 @@ public class VMProcess extends UserProcess {
 
         // find free slot in main memory
         int ppn = -1;
+        UserKernel.fpLock.acquire();
         if (UserKernel.freePages.size() > 0) {
             ppn = UserKernel.freePages.poll();
+            UserKernel.fpLock.release();
             Lib.debug(dbgVM, "\tswapIn(): find free ppn = " + ppn);
         }
         if (ppn == -1) { // no free main memory
