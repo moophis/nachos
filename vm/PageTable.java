@@ -89,17 +89,20 @@ public class PageTable {
      *
      * @param vpn - virtual memory page number.
      * @param pid - the associated process ID.
+     *
+     * @return removed PIDEntry.
      */
-    public void unsetVirtualToEntry(int vpn, int pid) {
+    public PIDEntry unsetVirtualToEntry(int vpn, int pid) {
         Lib.debug(dbgPT, "#In VirtualToEntry(): vpn = " + vpn
                 + " pid = " + pid);
 //        pageLock.acquire();
         VP t = new VP(vpn, pid);
         if (virtualToEntry.containsKey(t)) {
             Lib.debug(dbgPT, "\tContains key...");
-            virtualToEntry.remove(t);
+            return virtualToEntry.remove(t);
         }
 //        pageLock.release();
+        return null;
     }
 
     /**
@@ -140,16 +143,19 @@ public class PageTable {
      *
      * @param ppn - physical memory page number.
      * @param pid - the associated process ID.
+     *
+     * @return removed PIDEntry.
      */
-    public void unsetPhysicalToEntry(int ppn, int pid) {
+    public PIDEntry unsetPhysicalToEntry(int ppn, int pid) {
         Lib.debug(dbgPT, "#In unsetPhysicalToEntry(): ppn = " + ppn
                 + " pid = " + pid);
 //        pageLock.acquire();
         if (physicalToEntry.containsKey(ppn)) {
             Lib.debug(dbgPT, "\tContains key...");
-            physicalToEntry.remove(ppn);
+            return physicalToEntry.remove(ppn);
         }
 //        pageLock.release();
+        return null;
     }
 
     /**
@@ -173,15 +179,16 @@ public class PageTable {
      *
      * @param vpn - virtual memory page number.
      * @param pid - the associated process ID.
-     * @param te  - the associated translation entry.
      */
-    public void remove(int vpn, int pid, TranslationEntry te) {
-        if (vpn < 0 || pid < 0 || te == null)
+    public void remove(int vpn, int pid) {
+        if (vpn < 0 || pid < 0)
             return;
 
-        PIDEntry pe = new PIDEntry(pid, te);
-        unsetVirtualToEntry(vpn, pid);
-        unsetPhysicalToEntry(te.ppn, pid);
+        PIDEntry pe = unsetVirtualToEntry(vpn, pid);
+        if (pe != null && pe.getEntry() != null
+                && pe.getEntry().ppn >= 0) {
+            unsetPhysicalToEntry(pe.getEntry().ppn, pid);
+        }
     }
 
     /**

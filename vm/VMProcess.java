@@ -46,10 +46,11 @@ public class VMProcess extends UserProcess {
             if (tlbBackUp[i].valid) {
                 // write back to page table
                 TranslationEntry tmpEntry = tlbBackUp[i];
-                pt.setVirtualToEntry(tmpEntry.vpn,
-                        getPID(), new PIDEntry(getPID(), tmpEntry));
-                pt.setPhysicalToEntry(tmpEntry.ppn,
-                        new PIDEntry(getPID(), tmpEntry));
+//                pt.setVirtualToEntry(tmpEntry.vpn,
+//                        getPID(), new PIDEntry(getPID(), tmpEntry));
+//                pt.setPhysicalToEntry(tmpEntry.ppn,
+//                        new PIDEntry(getPID(), tmpEntry));
+                pt.set(tmpEntry.vpn, getPID(), tmpEntry);
             }
         }
 //        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
@@ -330,16 +331,17 @@ public class VMProcess extends UserProcess {
             }
 
             if (ppn != -1) {
-                pt.unsetVirtualToEntry(v, pid);
-                pt.unsetPhysicalToEntry(ppn, pid);
+//                pt.unsetVirtualToEntry(v, pid);
+//                pt.unsetPhysicalToEntry(ppn, pid);
+                pt.remove(v, pid);
 
                 // reclaim the physical page
-                UserKernel.fpLock.acquire();
                 Lib.debug(dbgVM, "\tReclaim page pid = " + pid +
                         " vpn = " + v + " ppn = " + ppn);
                 pt.iterateVirtualTable();
                 pt.iteratePhysicalTable();
 
+                UserKernel.fpLock.acquire();
                 UserKernel.freePages.add(ppn);
                 UserKernel.fpLock.release();
             }
@@ -431,10 +433,11 @@ public class VMProcess extends UserProcess {
             // write the victim entry back to page table before replacement
             TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
 
-            PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
-                    getPID(), new PIDEntry(getPID(), tmpEntry));
-            PageTable.getInstance().setPhysicalToEntry(tmpEntry.ppn,
-                    new PIDEntry(getPID(), tmpEntry));
+//            PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
+//                    getPID(), new PIDEntry(getPID(), tmpEntry));
+//            PageTable.getInstance().setPhysicalToEntry(tmpEntry.ppn,
+//                    new PIDEntry(getPID(), tmpEntry));
+            PageTable.getInstance().set(tmpEntry.vpn, getPID(), tmpEntry);
         }
 
         // write the new TLB entry
@@ -550,9 +553,10 @@ public class VMProcess extends UserProcess {
         }
 
         Lib.debug(dbgVM, "\tNow set the page table entries...");
-        pe.setEntry(te);
-        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
-        pt.setPhysicalToEntry(ppn, pe);
+//        pe.setEntry(te);
+//        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
+//        pt.setPhysicalToEntry(ppn, pe);
+        pt.set(vpn, pid, te);
         pt.iterateVirtualTable();
         pt.iteratePhysicalTable();
         Lib.debug(dbgVM, "\tswapIn(): Exit handling...");
@@ -599,8 +603,9 @@ public class VMProcess extends UserProcess {
          * only contain entries of virtual page actually residing
          * in the physical memory.
          */
-        PageTable.getInstance().unsetVirtualToEntry(vpn, pid);
-        PageTable.getInstance().unsetPhysicalToEntry(ppn, pid);
+        PageTable.getInstance().remove(vpn, pid);
+//        PageTable.getInstance().unsetVirtualToEntry(vpn, pid);
+//        PageTable.getInstance().unsetPhysicalToEntry(ppn, pid);
 
         return entry.ppn;
     }
@@ -617,9 +622,10 @@ public class VMProcess extends UserProcess {
             TranslationEntry te = Machine.processor().readTLBEntry(i);
 
             if (te != null && te.valid) {
-                PIDEntry pe = new PIDEntry(getPID(), te);
-                pt.setVirtualToEntry(te.vpn, getPID(), pe);
-                pt.setPhysicalToEntry(te.ppn, pe);
+//                e);PIDEntry pe = new PIDEntry(getPID(), te);
+//                pt.setVirtualToEntry(te.vpn, getPID(), pe);
+//                pt.setPhysicalToEntry(te.ppn, p
+                pt.set(te.vpn, getPID(), te);
             }
         }
 
