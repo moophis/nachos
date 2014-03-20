@@ -32,6 +32,13 @@ public class PageTable {
         }
     }
 
+    public void iteratePhysicalTable() {
+        Lib.debug(dbgVM, "#In iteratePhysicalTable(): ");
+        for (int ppn : physicalToEntry.keySet()) {
+            Lib.debug(dbgVM, ppn + "->" + physicalToEntry.get(ppn).toString());
+        }
+    }
+
     /**
      * Get PIDEntry from virtual memory.
      *
@@ -120,9 +127,9 @@ public class PageTable {
      */
     public void setPhysicalToEntry(int ppn, PIDEntry entry) {
         Lib.debug(dbgPT, "#In setPhysicalToEntry(): ppn = " + ppn);
-        pageLock.acquire();
+//        pageLock.acquire();
         physicalToEntry.put(ppn, entry);
-        pageLock.release();
+//        pageLock.release();
     }
 
     /**
@@ -158,16 +165,28 @@ public class PageTable {
                 return null;
             }
 
+            iterateVirtualTable();
+//            iteratePhysicalTable();
+
             while (it.hasNext()) {
                 int ppn = it.next();
                 PIDEntry pe = physicalToEntry.get(ppn);
+                int vpn = pe.getEntry().vpn;
+                int pid = pe.getPID();
                 TranslationEntry te = pe.getEntry();
 
+                Lib.assertTrue(ppn == pe.getEntry().ppn);
                 if (te.used) { // give you another chance
                     te.used = false;
                     pe.setEntry(te);
-                    physicalToEntry.put(ppn, pe);
+                    setVirtualToEntry(vpn, pid, pe);
+                    setPhysicalToEntry(ppn, pe);
+//                    Lib.debug(dbgVM, "Physical: " + getEntryFromPhysical(ppn).toString());
+//                    Lib.debug(dbgVM, "Virtual: " + getEntryFromVirtual(vpn, pid).toString());
+                    Lib.assertTrue(!getEntryFromPhysical(ppn).getEntry().used);
+                    Lib.assertTrue(!getEntryFromVirtual(vpn, pid).getEntry().used);
                 } else { // now you are dead...
+                    Lib.debug(dbgVM, "\t#Choose victim " + pe);
                     return pe;
                 }
             }

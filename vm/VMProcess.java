@@ -45,9 +45,10 @@ public class VMProcess extends UserProcess {
                 TranslationEntry tmpEntry = tlbBackUp[i];
                 pt.setVirtualToEntry(tmpEntry.vpn,
                         getPID(), new PIDEntry(getPID(), tmpEntry));
+                pt.setPhysicalToEntry(tmpEntry.ppn,
+                        new PIDEntry(getPID(), tmpEntry));
             }
         }
-
 //        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
     }
 
@@ -111,6 +112,8 @@ public class VMProcess extends UserProcess {
                 + data.length + ", beginning offset=" + offset + ", length=" + length
                 + " current pid = " + getPID());
 
+        vmLock.acquire();
+
         byte[] physicalMemory = Machine.processor().getMemory();
         int amount = 0;
 
@@ -162,10 +165,14 @@ public class VMProcess extends UserProcess {
             System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 
             te.used = true; // make it used
+
+            // update entry tables
             Machine.processor().writeTLBEntry(tlbIndex, te);
 
             amount += count;
         }
+
+        vmLock.release();
 
         return amount;
     }
@@ -182,6 +189,8 @@ public class VMProcess extends UserProcess {
 		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
 				+ data.length + ", beginning offset=" + offset + ", length=" + length
 				+ " current pid = " + getPID());
+
+        vmLock.acquire();
 
         byte[] physicalMemory = Machine.processor().getMemory();
         int amount = 0;
@@ -241,6 +250,8 @@ public class VMProcess extends UserProcess {
 
             amount += count;
         }
+
+        vmLock.release();
 
         return amount;
     }
@@ -357,7 +368,8 @@ public class VMProcess extends UserProcess {
         }
         Lib.debug(dbgVM, "\tChoosen TLB index: " + invalidIndex);
 
-        //all entries in TLB were valid, choose randomly to replace
+        // all entries in TLB were valid, choose randomly to replace
+        // note that we do no need to write back the invalid entry to page table
         if (invalidIndex == -1)
         {
             invalidIndex = randomlyVictimizeTLB();
@@ -365,9 +377,11 @@ public class VMProcess extends UserProcess {
 
             // write the victim entry back to page table before replacement
             TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
+
             PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
                     getPID(), new PIDEntry(getPID(), tmpEntry));
-            // note that we do no need to write back the invalid entry to page table
+            PageTable.getInstance().setPhysicalToEntry(tmpEntry.ppn,
+                    new PIDEntry(getPID(), tmpEntry));
         }
 
         // write the new TLB entry
@@ -532,12 +546,29 @@ public class VMProcess extends UserProcess {
          * in the physical memory.
          */
         PageTable.getInstance().unsetVirtualToEntry(vpn, pid);
+        PageTable.getInstance().unsetPhysicalToEntry(ppn, pid);
 
         return entry.ppn;
     }
 
     private PIDEntry nextVictimPage() {
         Lib.debug(dbgVM, "In nextVictimPage(): ");
+        /*
+         * Prepare for the victimizing algorithm by writing updated
+         * entries in TLB back to page tables.
+         */
+        int size = Machine.processor().getTLBSize();
+        PageTable pt = PageTable.getInstance();
+        for (int i = 0; i < size; i++) {
+            TranslationEntry te = Machine.processor().readTLBEntry(i);
+
+            if (te != null && te.valid) {
+                PIDEntry pe = new PIDEntry(getPID(), te);
+                pt.setVirtualToEntry(te.vpn, getPID(), pe);
+                pt.setPhysicalToEntry(te.ppn, pe);
+            }
+        }
+
         PIDEntry victim = PageTable.getInstance().victimize();
         Lib.debug(dbgVM, "\tvictim: " + victim);
         return victim;
