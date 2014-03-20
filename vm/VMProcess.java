@@ -33,7 +33,10 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
-//        Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+        if (getPID() != 0) {
+            Lib.debug(dbgVM, "In saveState(): pid = " + getPID());
+            iterateTLB();
+        }
 
         // save TLB
         Processor proc = Machine.processor();
@@ -57,7 +60,8 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-//        Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
+        if (getPID() != 0)
+            Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
 
         // restore TLB if possible
         Processor proc = Machine.processor();
@@ -367,6 +371,18 @@ public class VMProcess extends UserProcess {
         }
     }
 
+    private void iterateTLB() {
+        Lib.debug(dbgVM, "In iterateTLB(), pid = " + getPID());
+        int tlbSize = Machine.processor().getTLBSize();
+        Processor proc = Machine.processor();
+
+        for (int i = 0; i < tlbSize; i++) {
+            Lib.debug(dbgVM, "\tOld TLB(" + i + "): vpn = " +
+                    proc.readTLBEntry(i).vpn + ", ppn = " +
+                    proc.readTLBEntry(i).ppn);
+        }
+    }
+
     /**
      * Handle TLB miss.
      *
@@ -469,10 +485,8 @@ public class VMProcess extends UserProcess {
 
         // find free slot in main memory
         int ppn = -1;
-        UserKernel.fpLock.acquire();
         if (UserKernel.freePages.size() > 0) {
             ppn = UserKernel.freePages.poll();
-            UserKernel.fpLock.release();
             Lib.debug(dbgVM, "\tswapIn(): find free ppn = " + ppn);
         }
         if (ppn == -1) { // no free main memory
@@ -540,6 +554,7 @@ public class VMProcess extends UserProcess {
         pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
         pt.setPhysicalToEntry(ppn, pe);
         pt.iterateVirtualTable();
+        pt.iteratePhysicalTable();
         Lib.debug(dbgVM, "\tswapIn(): Exit handling...");
 
         return true;
