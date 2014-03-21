@@ -50,6 +50,8 @@ public class VMProcess extends UserProcess {
 //                        getPID(), new PIDEntry(getPID(), tmpEntry));
 //                pt.setPhysicalToEntry(tmpEntry.ppn,
 //                        new PIDEntry(getPID(), tmpEntry));
+                Lib.debug(dbgVM, "\tsaveState(): set()-> vpn = " + tmpEntry.vpn
+                        + ", pid = " + getPID());
                 pt.set(tmpEntry.vpn, getPID(), tmpEntry);
             }
         }
@@ -329,7 +331,7 @@ public class VMProcess extends UserProcess {
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
 
-        Lib.debug(dbgVM, "\tPageTables after unloadSections:");
+        Lib.debug(dbgVM, "\tPageTables before unloadSections:");
         pt.iterateVirtualTable();
         pt.iteratePhysicalTable();
 
@@ -342,6 +344,8 @@ public class VMProcess extends UserProcess {
             if (ppn != -1) {
 //                pt.unsetVirtualToEntry(v, pid);
 //                pt.unsetPhysicalToEntry(ppn, pid);
+                Lib.debug(dbgVM, "\tunloadSections(): remove()-> vpn = " + v
+                        + ", pid = " + pid);
                 pt.remove(v, pid);
 
                 // reclaim the physical page
@@ -403,8 +407,8 @@ public class VMProcess extends UserProcess {
      *           -1, if the miss cannot be handled, might be an illegal access.
      */
     private int handleTLBMiss(int vaddr) {
-        Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr
-                    + ", pid = " + getPID());
+        Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr + "vpn = "
+                   + Processor.pageFromAddress(vaddr) + ", pid = " + getPID());
         int vpn = Processor.pageFromAddress(vaddr);
         int sizeTLB = Machine.processor().getTLBSize();
         int invalidIndex = -1;
@@ -448,6 +452,8 @@ public class VMProcess extends UserProcess {
 //                    getPID(), new PIDEntry(getPID(), tmpEntry));
 //            PageTable.getInstance().setPhysicalToEntry(tmpEntry.ppn,
 //                    new PIDEntry(getPID(), tmpEntry));
+            Lib.debug(dbgVM, "\thandleTLBMiss(): set()-> vpn = " + tmpEntry.vpn
+                            + ", pid = " + getPID());
             PageTable.getInstance().set(tmpEntry.vpn, getPID(), tmpEntry);
         }
 
@@ -513,7 +519,6 @@ public class VMProcess extends UserProcess {
         // load coff section into physical memory
         PIDEntry pe;
         TranslationEntry te;
-
         if (secMap.containsKey(vpn) && !secMap.get(vpn).loaded) {
             SecInfo si = secMap.get(vpn);
             si.loaded = true;
@@ -565,6 +570,8 @@ public class VMProcess extends UserProcess {
 //        pe.setEntry(te);
 //        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
 //        pt.setPhysicalToEntry(ppn, pe);
+        Lib.debug(dbgVM, "\tswapIn(): set()-> vpn = " + vpn
+                + ", pid = " + pid);
         pt.set(vpn, pid, te);
         pt.iterateVirtualTable();
         pt.iteratePhysicalTable();
@@ -615,6 +622,8 @@ public class VMProcess extends UserProcess {
          * only contain entries of virtual page actually residing
          * in the physical memory.
          */
+        Lib.debug(dbgVM, "\tswapOut(): remove()-> vpn = " + vpn
+                        + ", pid = " + pid);
         PageTable.getInstance().remove(vpn, pid);
 //        PageTable.getInstance().unsetVirtualToEntry(vpn, pid);
 //        PageTable.getInstance().unsetPhysicalToEntry(ppn, pid);
@@ -637,6 +646,8 @@ public class VMProcess extends UserProcess {
 //                PIDEntry pe = new PIDEntry(getPID(), te);
 //                pt.setVirtualToEntry(te.vpn, getPID(), pe);
 //                pt.setPhysicalToEntry(te.ppn, p
+                Lib.debug(dbgVM, "\tnextVictimPage(): set()-> vpn = " + te.vpn
+                        + ", pid = " + getPID());
                 pt.set(te.vpn, getPID(), te);
             }
         }

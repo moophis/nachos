@@ -168,8 +168,8 @@ public class PageTable {
     public void set(int vpn, int pid, TranslationEntry te) {
         if (vpn < 0 || pid < 0 || te == null)
             return;
-        Lib.debug(dbgVM, "**In set(): vpn = " + vpn + ", pid = " +
-                    ", ppn = " + te.ppn);
+        Lib.debug(dbgPT, "**In set(): vpn = " + vpn + ", pid = " + pid
+                    + ", ppn = " + te.ppn);
         Lib.assertTrue(vpn == te.vpn);
 
         PIDEntry pe = new PIDEntry(pid, te);
@@ -186,7 +186,7 @@ public class PageTable {
     public void remove(int vpn, int pid) {
         if (vpn < 0 || pid < 0)
             return;
-        Lib.debug(dbgVM, "**In remove(): vpn = " + vpn + ", pid = " + pid);
+        Lib.debug(dbgPT, "**In remove(): vpn = " + vpn + ", pid = " + pid);
 
         PIDEntry pe = unsetVirtualToEntry(vpn, pid);
         if (pe != null && pe.getEntry() != null
@@ -226,8 +226,9 @@ public class PageTable {
                 if (te.used) { // give you another chance
                     te.used = false;
                     pe.setEntry(te);
-                    setVirtualToEntry(vpn, pid, pe);
-                    setPhysicalToEntry(ppn, pe);
+//                    setVirtualToEntry(vpn, pid, pe);
+//                    setPhysicalToEntry(ppn, pe);
+                    set(vpn, pid, te);
 //                    Lib.debug(dbgVM, "Physical: " + getEntryFromPhysical(ppn).toString());
 //                    Lib.debug(dbgVM, "Virtual: " + getEntryFromVirtual(vpn, pid).toString());
                     Lib.assertTrue(!getEntryFromPhysical(ppn).getEntry().used);
