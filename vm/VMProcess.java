@@ -328,6 +328,11 @@ public class VMProcess extends UserProcess {
 
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
+
+        Lib.debug(dbgVM, "\tPageTables after unloadSections:");
+        pt.iterateVirtualTable();
+        pt.iteratePhysicalTable();
+
         for (Integer v : secMap.keySet()) {
             int ppn = -1;
             if (pt.getEntryFromVirtual(v, pid) != null) {
@@ -414,6 +419,7 @@ public class VMProcess extends UserProcess {
         }
         Lib.assertTrue(pe != null && pe.getEntry().valid);
 
+        // find an invalid entry to victimize if possible
         for (int i = 0; i < sizeTLB; i++)
         {
             // get entry in TLB
@@ -457,9 +463,7 @@ public class VMProcess extends UserProcess {
      * Randomly choose a victim TLB entry to be replaced.
      */
     private int randomlyVictimizeTLB() {
-        int index = Lib.random(Machine.processor().getTLBSize());
-
-        return index;
+        return Lib.random(Machine.processor().getTLBSize());
     }
 
     /**
@@ -509,7 +513,7 @@ public class VMProcess extends UserProcess {
         // load coff section into physical memory
         PIDEntry pe;
         TranslationEntry te;
-        // TODO: still need to handle stack and parameter page
+
         if (secMap.containsKey(vpn) && !secMap.get(vpn).loaded) {
             SecInfo si = secMap.get(vpn);
             si.loaded = true;
@@ -531,7 +535,7 @@ public class VMProcess extends UserProcess {
 
             // update page table
             te = new TranslationEntry(vpn, ppn, true, si.readOnly, true, true);
-            pe = new PIDEntry(getPID(), te);
+//            pe = new PIDEntry(getPID(), te);
         } else {
             int paddr = Processor.makeAddress(ppn, 0);
             byte[] physicalMemory = Machine.processor().getMemory();
@@ -593,7 +597,10 @@ public class VMProcess extends UserProcess {
 
             System.arraycopy(physicalMemory, paddr, buf, 0, pageSize);
 
-            Lib.assertTrue(SwapFile.getInstance().writePage(buf, 0, vpn, pid) == pageSize);
+            if (SwapFile.getInstance().writePage(buf, 0, vpn, pid) != pageSize) {
+                Lib.debug(dbgVM, "\tswapOut(): copy physical page failed");
+                return -1;
+            }
         }
 
         // invalidate the entry buffered in TLB if exists
@@ -627,7 +634,7 @@ public class VMProcess extends UserProcess {
             TranslationEntry te = Machine.processor().readTLBEntry(i);
 
             if (te != null && te.valid) {
-//                e);PIDEntry pe = new PIDEntry(getPID(), te);
+//                PIDEntry pe = new PIDEntry(getPID(), te);
 //                pt.setVirtualToEntry(te.vpn, getPID(), pe);
 //                pt.setPhysicalToEntry(te.ppn, p
                 pt.set(te.vpn, getPID(), te);
