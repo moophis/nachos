@@ -24,7 +24,7 @@ public class VMProcess extends UserProcess {
         tlbBackUp = new TranslationEntry[tlbSize];
 
         for (int i = 0; i < tlbSize; i++) {
-            tlbBackUp[i] = new TranslationEntry(0, 0, false, false, false, false);
+            tlbBackUp[i] = new TranslationEntry(-1, -1, false, false, false, false);
         }
     }
 
@@ -43,7 +43,7 @@ public class VMProcess extends UserProcess {
         PageTable pt = PageTable.getInstance();
         for (int i = 0; i < proc.getTLBSize(); i++) {
             tlbBackUp[i] = proc.readTLBEntry(i);
-            if (tlbBackUp[i].valid) {
+            if (tlbBackUp[i] != null && tlbBackUp[i].valid) {
                 // write back to page table
                 TranslationEntry tmpEntry = tlbBackUp[i];
 //                pt.setVirtualToEntry(tmpEntry.vpn,
@@ -61,8 +61,10 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-        if (getPID() != 0)
+        if (getPID() != 0) {
             Lib.debug(dbgVM, "In restoreState(): pid = " + getPID());
+            iterateTLB();
+        }
 
         // restore TLB if possible
         Processor proc = Machine.processor();
@@ -73,8 +75,9 @@ public class VMProcess extends UserProcess {
                 pe = pt.getEntryFromVirtual(tlbBackUp[i].vpn, getPID());
             }
             if (pe == null) {
-                proc.writeTLBEntry(i, new TranslationEntry(0, 0, false, false, false, false));
+                proc.writeTLBEntry(i, new TranslationEntry(-1, -1, false, false, false, false));
             } else {
+                Lib.assertTrue(pe.getEntry() != null);
                 proc.writeTLBEntry(i, pe.getEntry());
             }
         }
@@ -318,8 +321,9 @@ public class VMProcess extends UserProcess {
         Lib.debug(dbgVM, "(vm)In unloadSections():");
 //        vmLock.acquire();
 
-        // invalidate current TLB entries in order not to influence
-        // the following processes.
+        // Invalidate current TLB entries in order not to influence
+        // the following processes (On context switch, OS may write
+        // TLB back to page table).
         invalidateAllTLB();
 
         PageTable pt = PageTable.getInstance();
@@ -369,7 +373,7 @@ public class VMProcess extends UserProcess {
             Lib.debug(dbgVM, "\tOld TLB(" + i + "): vpn = " +
                     proc.readTLBEntry(i).vpn + ", ppn = " +
                     proc.readTLBEntry(i).ppn);
-            proc.writeTLBEntry(i, new TranslationEntry(0, 0, false, false, false, false));
+            proc.writeTLBEntry(i, new TranslationEntry(-1, -1, false, false, false, false));
         }
     }
 
@@ -381,7 +385,8 @@ public class VMProcess extends UserProcess {
         for (int i = 0; i < tlbSize; i++) {
             Lib.debug(dbgVM, "\tOld TLB(" + i + "): vpn = " +
                     proc.readTLBEntry(i).vpn + ", ppn = " +
-                    proc.readTLBEntry(i).ppn);
+                    proc.readTLBEntry(i).ppn + ", valid = " +
+                    proc.readTLBEntry(i).valid);
         }
     }
 
@@ -421,7 +426,7 @@ public class VMProcess extends UserProcess {
                 break;
             }
         }
-        Lib.debug(dbgVM, "\tChoosen TLB index: " + invalidIndex);
+        Lib.debug(dbgVM, "\tChoose TLB index: " + invalidIndex);
 
         // all entries in TLB were valid, choose randomly to replace
         // note that we do no need to write back the invalid entry to page table

@@ -168,6 +168,9 @@ public class PageTable {
     public void set(int vpn, int pid, TranslationEntry te) {
         if (vpn < 0 || pid < 0 || te == null)
             return;
+        Lib.debug(dbgVM, "**In set(): vpn = " + vpn + ", pid = " +
+                    ", ppn = " + te.ppn);
+        Lib.assertTrue(vpn == te.vpn);
 
         PIDEntry pe = new PIDEntry(pid, te);
         setVirtualToEntry(vpn, pid, pe);
@@ -183,10 +186,14 @@ public class PageTable {
     public void remove(int vpn, int pid) {
         if (vpn < 0 || pid < 0)
             return;
+        Lib.debug(dbgVM, "**In remove(): vpn = " + vpn + ", pid = " + pid);
 
         PIDEntry pe = unsetVirtualToEntry(vpn, pid);
         if (pe != null && pe.getEntry() != null
                 && pe.getEntry().ppn >= 0) {
+            Lib.assertTrue(pe.getEntry().vpn == vpn);
+            Lib.assertTrue(pe.getPID() == pid);
+
             unsetPhysicalToEntry(pe.getEntry().ppn, pid);
         }
     }
