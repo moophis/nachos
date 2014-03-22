@@ -936,9 +936,11 @@ public class UserProcess {
 					+ " from endedchildren list of current pid = " + getPID());
 			return -1;
 		}
-		
+
+        Lib.debug(dbgProcess, "\t(handleJoin) status to be written...");
 		writeVirtualMemory(statusPtr, Lib.bytesFromInt(endedChildren.get(joinpid)));
-		
+        Lib.debug(dbgProcess, "\t(handleJoin) status written...");
+
 		joinLock.acquire();
 		if (endedChildren.get(joinpid) == 0) {
 			endedChildren.remove(joinpid);

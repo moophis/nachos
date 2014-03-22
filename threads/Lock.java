@@ -36,6 +36,7 @@ public class Lock {
 		KThread thread = KThread.currentThread();
 
 		if (lockHolder != null) {
+//            System.out.println("!!!!LOCK ALREADY HOLD BY: " + lockHolder);
 			waitQueue.waitForAccess(thread);
 			KThread.sleep();
 		}
