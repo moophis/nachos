@@ -20,12 +20,19 @@ public class VMProcess extends UserProcess {
 
         secMap = new HashMap<Integer, SecInfo>();
 
-        int tlbSize = Machine.processor().getTLBSize();
+        Processor proc = Machine.processor();
+        int tlbSize = proc.getTLBSize();
         tlbBackUp = new TranslationEntry[tlbSize];
 
         for (int i = 0; i < tlbSize; i++) {
             tlbBackUp[i] = new TranslationEntry(-1, -1, false, false, false, false);
+            // also need to invalidate all TLB entries
+            proc.writeTLBEntry(i, tlbBackUp[i]);
         }
+
+        // TODO: debug
+        Lib.debug(dbgVM, "VMProcess(): invalidate all TLB entries");
+        iterateTLB();
     }
 
     /**
@@ -58,8 +65,8 @@ public class VMProcess extends UserProcess {
 //                pt.setPhysicalToEntry(tmpEntry.ppn,
 //                        new PIDEntry(getPID(), tmpEntry));
 
-                // TODO: find bug
                 pt.set(tmpEntry.vpn, getPID(), tmpEntry);
+                // TODO: find bug
                 if ((tmpEntry.vpn == 13 && getPID() == 1) ||
                         (tmpEntry.vpn == 14) && getPID() == 0) {
                     System.out.println("\t!!!saveState(): set -> vpn = " +
@@ -72,7 +79,9 @@ public class VMProcess extends UserProcess {
             // invalid current TLB slot
             proc.writeTLBEntry(i, new TranslationEntry(-1, -1, false, false, false, false));
         }
-//        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
+        if (getPID() != 0) {
+            Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
+        }
     }
 
     /**
@@ -122,7 +131,8 @@ public class VMProcess extends UserProcess {
             }
         }
 
-        Lib.debug(dbgVM, "\tCannot find entry slot");
+        Lib.debug(dbgVM, "\tfindEntryFromTLB(): Cannot find entry slot: vpn = " + vpn
+                        + ", pid = " + getPID());
         return -1;
     }
 
@@ -152,7 +162,7 @@ public class VMProcess extends UserProcess {
         int fromOffset = Processor.offsetFromAddress(vaddr);
         int toPage = Processor.pageFromAddress(vaddr + length - 1);
         int toOffset = Processor.offsetFromAddress(vaddr + length - 1);
-        Lib.debug(dbgProcess, "\tVirtualMem Addr from (page " + fromPage + " offset "
+        Lib.debug(dbgProcess, "\t(ReadVM) VirtualMem Addr from (page " + fromPage + " offset "
                 + fromOffset + ") to (page " + toPage + " offset " + toOffset + ")");
 
         for (int i = fromPage; i <= toPage; i++) {
@@ -164,7 +174,7 @@ public class VMProcess extends UserProcess {
 
                 if (tlbIndex == -1) {
                     // abort
-                    Lib.debug(dbgProcess, "\tCannot handle page fault!");
+                    Lib.debug(dbgProcess, "\t(ReadVM) Cannot handle page fault!");
                     handleExit(Processor.exceptionBusError);
                 }
             }
@@ -187,7 +197,7 @@ public class VMProcess extends UserProcess {
 
             int srcPos = Processor.makeAddress(ppn, off);
 
-            Lib.debug(dbgProcess, "\t *PhyMem Addr=" + srcPos + " data index=" + (offset + amount)
+            Lib.debug(dbgProcess, "\t(ReadVM) *PhyMem Addr=" + srcPos + " data index=" + (offset + amount)
                     + " count=" + count);
             System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 
@@ -240,7 +250,7 @@ public class VMProcess extends UserProcess {
 
                 if (tlbIndex == -1) {
                     // abort
-                    Lib.debug(dbgProcess, "\tCannot handle page fault!");
+                    Lib.debug(dbgProcess, "\t(WriteVM) Cannot handle page fault!");
                     handleExit(Processor.exceptionBusError);
                 }
             }
@@ -251,7 +261,7 @@ public class VMProcess extends UserProcess {
             // check if the read-only page is to be written.
             if (te.readOnly) {
                 // abort
-                Lib.debug(dbgProcess, "\tTry to write readOnly page " + i);
+                Lib.debug(dbgProcess, "\t(WriteVM) Try to write readOnly page " + i);
                 handleExit(Processor.exceptionReadOnly);
             }
 
@@ -348,7 +358,7 @@ public class VMProcess extends UserProcess {
         PageTable pt = PageTable.getInstance();
         int pid = getPID();
 
-        Lib.debug(dbgVM, "\tPageTables before unloadSections:");
+        Lib.debug(dbgVM, "\t(unloadSec) PageTables before unloadSections:");
         pt.iterateVirtualTable();
         pt.iteratePhysicalTable();
 
@@ -366,7 +376,7 @@ public class VMProcess extends UserProcess {
                 pt.remove(v, pid);
 
                 // reclaim the physical page
-                Lib.debug(dbgVM, "\tReclaim page pid = " + pid +
+                Lib.debug(dbgVM, "\t(unloadSec) Reclaim page pid = " + pid +
                         " vpn = " + v + " ppn = " + ppn);
                 pt.iterateVirtualTable();
                 pt.iteratePhysicalTable();
@@ -404,12 +414,12 @@ public class VMProcess extends UserProcess {
     }
 
     private void iterateTLB() {
-        Lib.debug(dbgVM, "In iterateTLB(), pid = " + getPID());
+        Lib.debug(dbgVM, "In iterateTLB(), current pid = " + getPID());
         int tlbSize = Machine.processor().getTLBSize();
         Processor proc = Machine.processor();
 
         for (int i = 0; i < tlbSize; i++) {
-            Lib.debug(dbgVM, "\tOld TLB(" + i + "): vpn = " +
+            Lib.debug(dbgVM, "\tCurrent TLB(" + i + "): vpn = " +
                     proc.readTLBEntry(i).vpn + ", ppn = " +
                     proc.readTLBEntry(i).ppn + ", valid = " +
                     proc.readTLBEntry(i).valid);
@@ -442,7 +452,7 @@ public class VMProcess extends UserProcess {
             pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
         } else {
             // TODO: debug use
-            Lib.debug(dbgVM, "\tFind page: " + pe);
+            Lib.debug(dbgVM, "\t(handleTLBMiss) Find page: " + pe);
         }
         Lib.assertTrue(pe != null && pe.getEntry().valid);
 
@@ -459,18 +469,18 @@ public class VMProcess extends UserProcess {
                 break;
             }
         }
-        Lib.debug(dbgVM, "\tChoose TLB index: " + invalidIndex);
+        Lib.debug(dbgVM, "\t(handleTLBMiss) Choose TLB index: " + invalidIndex);
 
         // all entries in TLB were valid, choose randomly to replace
         // note that we do no need to write back the invalid entry to page table
         if (invalidIndex == -1)
         {
             invalidIndex = randomlyVictimizeTLB();
-            Lib.debug(dbgVM, "\tVictimize TLB index: " + invalidIndex);
+            Lib.debug(dbgVM, "\t(handleTLBMiss) Victimize TLB index: " + invalidIndex);
 
             // write the victim entry back to page table before replacement
             TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
-            Lib.debug(dbgVM, "\tVictimize TLB : vpn = " + tmpEntry.vpn +
+            Lib.debug(dbgVM, "\t(handleTLBMiss) Victimize TLB : vpn = " + tmpEntry.vpn +
                                 ", ppn = " + tmpEntry.ppn);
 
 //            PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
@@ -542,7 +552,7 @@ public class VMProcess extends UserProcess {
         if (ppn == -1) { // no free main memory
             Lib.debug(dbgVM, "\tswapIn(): cannot find free physical memory");
             if ((ppn = swapOut(nextVictimPage())) == -1) {
-                Lib.debug(dbgVM, "\tswapOut() failed: no free page!");
+                Lib.debug(dbgVM, "\tswapIn() failed: no free page!");
                 return false;
             }
         }
@@ -557,16 +567,16 @@ public class VMProcess extends UserProcess {
             secMap.put(vpn, si);  // update the map
             Lib.assertTrue(secMap.get(vpn).loaded);
 
-            Lib.debug(dbgVM, "\tload Coff section: sec " + si.spn
+            Lib.debug(dbgVM, "\tswapIn(): load Coff section: sec " + si.spn
                     + " subpage " + si.ipn);
             if (si.spn >= 0) {
                 // load regular coff sections
-                Lib.debug(dbgVM, "\tloading regular pages: spn = "
+                Lib.debug(dbgVM, "\tswapIn(): loading regular pages: spn = "
                         + si.spn + ", ipn = " + si.ipn);
                 coff.getSection(si.spn).loadPage(si.ipn, ppn);
             } else {
                 // stack pages or the parameter page
-                Lib.debug(dbgVM, "\tloading stack pages or parameters: spn = "
+                Lib.debug(dbgVM, "\tswapIn(): loading stack pages or parameters: spn = "
                         + si.spn + ", ipn = " + si.ipn);
             }
 
@@ -578,7 +588,7 @@ public class VMProcess extends UserProcess {
             byte[] physicalMemory = Machine.processor().getMemory();
             byte[] buf = new byte[pageSize];
             if (sf.readPage(buf, 0, vpn, pid) != pageSize) {
-                Lib.debug(dbgVM, "\tReading page from swap failed!");
+                Lib.debug(dbgVM, "\tswapIn(): Reading page from swap failed!");
                 return false;
             }
 
@@ -588,7 +598,7 @@ public class VMProcess extends UserProcess {
             Lib.assertTrue(pe != null && pe.getEntry() != null);
             Lib.assertTrue(pe.getEntry().vpn == vpn);
             Lib.assertTrue(pe.getPID() == pid);
-            Lib.debug(dbgVM, "\tLoading from swap file: " + pe);
+            Lib.debug(dbgVM, "\tswapIn(): Loading from swap file: " + pe);
 
             // keep readOnly bit invariant
             te = pe.getEntry();
@@ -600,7 +610,7 @@ public class VMProcess extends UserProcess {
             te.dirty = false;
         }
 
-        Lib.debug(dbgVM, "\tNow set the page table entries...");
+        Lib.debug(dbgVM, "\tswapIn(): Now set the page table entries...");
 //        pe.setEntry(te);
 //        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
 //        pt.setPhysicalToEntry(ppn, pe);
@@ -669,6 +679,10 @@ public class VMProcess extends UserProcess {
         return entry.ppn;
     }
 
+    /**
+     * Find the next victim page entry from TLB.
+     * @return PIDEntry of the victim page.
+     */
     private PIDEntry nextVictimPage() {
         Lib.debug(dbgVM, "In nextVictimPage(): ");
         /*
@@ -699,7 +713,7 @@ public class VMProcess extends UserProcess {
 
 //        PIDEntry victim = PageTable.getInstance().victimize();
         PIDEntry victim = PageTable.getInstance().randVictimize();
-        Lib.debug(dbgVM, "\tvictim: " + victim);
+        Lib.debug(dbgVM, "\tnextVictimPage(): victim: " + victim);
         return victim;
     }
 

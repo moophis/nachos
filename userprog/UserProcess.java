@@ -124,6 +124,9 @@ public class UserProcess {
 		thread = new UThread(this);
 		thread.setName(name).fork();
 
+        Lib.debug(dbgProcess, "execute(): now pid = " + getPID()
+                    + " is effective!");
+
 		return true;
 	}
 
