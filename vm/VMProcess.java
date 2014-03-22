@@ -43,6 +43,13 @@ public class VMProcess extends UserProcess {
         PageTable pt = PageTable.getInstance();
         for (int i = 0; i < proc.getTLBSize(); i++) {
             tlbBackUp[i] = proc.readTLBEntry(i);
+            // TODO
+            if (getPID() != 0) {
+                Lib.debug(dbgVM, "\tsaveState(): retrieve [" + i + "]: vpn = "
+                            + proc.readTLBEntry(i).vpn + ", ppn = "
+                            + proc.readTLBEntry(i).ppn + ", valid = "
+                            + proc.readTLBEntry(i).valid);
+            }
             if (tlbBackUp[i] != null && tlbBackUp[i].valid) {
                 // write back to page table
                 TranslationEntry tmpEntry = tlbBackUp[i];
@@ -50,10 +57,20 @@ public class VMProcess extends UserProcess {
 //                        getPID(), new PIDEntry(getPID(), tmpEntry));
 //                pt.setPhysicalToEntry(tmpEntry.ppn,
 //                        new PIDEntry(getPID(), tmpEntry));
-                Lib.debug(dbgVM, "\tsaveState(): set()-> vpn = " + tmpEntry.vpn
-                        + ", pid = " + getPID());
+
+                // TODO: find bug
                 pt.set(tmpEntry.vpn, getPID(), tmpEntry);
+                if ((tmpEntry.vpn == 13 && getPID() == 1) ||
+                        (tmpEntry.vpn == 14) && getPID() == 0) {
+                    System.out.println("\t!!!saveState(): set -> vpn = " +
+                            tmpEntry.vpn + ", pid = " + getPID());
+                    pt.iterateVirtualTable();
+                    pt.iteratePhysicalTable();
+                }
             }
+
+            // invalid current TLB slot
+            proc.writeTLBEntry(i, new TranslationEntry(-1, -1, false, false, false, false));
         }
 //        Lib.debug(dbgVM, "Leaving saveState(): pid = " + getPID());
     }
@@ -414,12 +431,18 @@ public class VMProcess extends UserProcess {
         int invalidIndex = -1;
         PIDEntry pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
 
+        // TODO: debug use
+        iterateTLB();
+
         if (pe == null) {
             // handle page fault
             if (!handlePageFault(vaddr))
                 return -1;
             // reload entry from page table
             pe = PageTable.getInstance().getEntryFromVirtual(vpn, getPID());
+        } else {
+            // TODO: debug use
+            Lib.debug(dbgVM, "\tFind page: " + pe);
         }
         Lib.assertTrue(pe != null && pe.getEntry().valid);
 
@@ -447,14 +470,23 @@ public class VMProcess extends UserProcess {
 
             // write the victim entry back to page table before replacement
             TranslationEntry tmpEntry = Machine.processor().readTLBEntry(invalidIndex);
+            Lib.debug(dbgVM, "\tVictimize TLB : vpn = " + tmpEntry.vpn +
+                                ", ppn = " + tmpEntry.ppn);
 
 //            PageTable.getInstance().setVirtualToEntry(tmpEntry.vpn,
 //                    getPID(), new PIDEntry(getPID(), tmpEntry));
 //            PageTable.getInstance().setPhysicalToEntry(tmpEntry.ppn,
 //                    new PIDEntry(getPID(), tmpEntry));
-            Lib.debug(dbgVM, "\thandleTLBMiss(): set()-> vpn = " + tmpEntry.vpn
-                            + ", pid = " + getPID());
+
             PageTable.getInstance().set(tmpEntry.vpn, getPID(), tmpEntry);
+            // TODO
+            if ((tmpEntry.vpn == 13 && getPID() == 1) ||
+                    (tmpEntry.vpn == 14) && getPID() == 0) {
+                System.out.println("\t!!!handleTLBMiss(): set -> vpn = " +
+                        tmpEntry.vpn + ", pid = " + getPID());
+                PageTable.getInstance().iterateVirtualTable();
+                PageTable.getInstance().iterateVirtualTable();
+            }
         }
 
         // write the new TLB entry
@@ -553,7 +585,9 @@ public class VMProcess extends UserProcess {
             System.arraycopy(buf, 0, physicalMemory, paddr, pageSize);
 
             pe = sf.findEntryInSwap(vpn, pid);
-            Lib.assertTrue(pe != null);
+            Lib.assertTrue(pe != null && pe.getEntry() != null);
+            Lib.assertTrue(pe.getEntry().vpn == vpn);
+            Lib.assertTrue(pe.getPID() == pid);
             Lib.debug(dbgVM, "\tLoading from swap file: " + pe);
 
             // keep readOnly bit invariant
@@ -570,9 +604,13 @@ public class VMProcess extends UserProcess {
 //        pe.setEntry(te);
 //        pt.setVirtualToEntry(vpn, pid, pe);  // update the <VP, PIDEntry>
 //        pt.setPhysicalToEntry(ppn, pe);
-        Lib.debug(dbgVM, "\tswapIn(): set()-> vpn = " + vpn
-                + ", pid = " + pid);
+
         pt.set(vpn, pid, te);
+        if ((vpn == 13 && pid == 1) ||
+                (vpn == 14 && pid == 0)) {
+            System.out.println("\t!!!swapIn(): set -> vpn = " +
+                    vpn + ", pid = " + pid);
+        }
         pt.iterateVirtualTable();
         pt.iteratePhysicalTable();
         Lib.debug(dbgVM, "\tswapIn(): Exit handling...");
@@ -646,9 +684,16 @@ public class VMProcess extends UserProcess {
 //                PIDEntry pe = new PIDEntry(getPID(), te);
 //                pt.setVirtualToEntry(te.vpn, getPID(), pe);
 //                pt.setPhysicalToEntry(te.ppn, p
-                Lib.debug(dbgVM, "\tnextVictimPage(): set()-> vpn = " + te.vpn
-                        + ", pid = " + getPID());
+
                 pt.set(te.vpn, getPID(), te);
+                // TODO
+                if ((te.vpn == 13 && getPID() == 1) ||
+                        (te.vpn == 14) && getPID() == 0) {
+                    System.out.println("\t!!!nextVictimPage(): set -> vpn = " +
+                            te.vpn + ", pid = " + getPID());
+                    pt.iterateVirtualTable();
+                    pt.iteratePhysicalTable();
+                }
             }
         }
 
