@@ -253,8 +253,18 @@ public class UserProcess {
 			Lib.debug(dbgProcess, "\t *PhyMem Addr=" + srcPos + " data index=" + (offset + amount) 
 					+ " count=" + count);
 			System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
-			
-			amount += count;
+
+//            // TODO: debug
+//            String str = new String(data, 0, count);
+//            Lib.debug(dbgProcess, "\t(Read) content: " + str);
+//            Lib.debug(dbgProcess, "\t(Read) content len = " + str.length());
+//            for (int n = 0; n < str.length(); n++) {
+//                if (Lib.test(dbgProcess)) {
+//                    System.out.println("charAt " + n + ": " + str.charAt(n));
+//                }
+//            }
+
+            amount += count;
 		}
 //		Lib.debug(dbgProcess, "\t**Memory Read: " + new String(data, 0, amount));
 
@@ -664,6 +674,7 @@ public class UserProcess {
 				int bytesRead =
 					readFile.read(tempReadBuffer, 0, count);
 				fileLock.release();
+
 				if(bytesRead != -1)
 				{
 					return writeVirtualMemory(baddr, tempReadBuffer, 0, bytesRead);
@@ -714,7 +725,12 @@ public class UserProcess {
 			{
 				byte[] tempWriteBuffer = new byte[count];
 				int bytesFromVirtual = readVirtualMemory(baddr, tempWriteBuffer);
-			
+
+                // TODO: debug
+                String str = new String(tempWriteBuffer, 0, count);
+                Lib.debug(dbgProcess, "\t(handleWrite) str = " + str);
+                Lib.debug(dbgProcess, "\t(handleWrite) str len = " + bytesFromVirtual);
+
 				if(bytesFromVirtual == count)
 				{
 					fileLock.acquire();
@@ -839,8 +855,19 @@ public class UserProcess {
 			return -1;
 		}
 		Lib.debug(dbgProcess, "\tProgram name: " + stringFile);
-		
-		String[] args = new String[argnum];
+
+        // TODO: debug
+//        for (int j = 0; j < 25; j++) {
+//            int addr = vaddrc + j * 4;
+//            byte[] tmp = new byte[4];
+//            readVirtualMemory(addr, tmp);
+//            int numAddr = Lib.bytesToInt(tmp, 0);
+//            System.out.print(numAddr);
+//            System.out.println("@@vaddr " + addr + " :" + readVirtualMemoryString(numAddr, VtoSmaxLength));
+//        }
+
+
+        String[] args = new String[argnum];
         for (int i = 0; i < argnum; i++) {
         	byte[] readbyte = new byte[4];
         	int readcount = 0;
@@ -851,10 +878,13 @@ public class UserProcess {
         	}
         	argAddr = Lib.bytesToInt(readbyte, 0);
         	args[i] = readVirtualMemoryString(argAddr, VtoSmaxLength);
-        	
+
         	if (args[i] == null)
         		return -1;
         	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
+
+            System.out.println("\t**args[" + i + "] = " + args[i]);
+            System.out.println("**args " + i + "@: " + argAddr);
         }
         
 		UserProcess child = UserProcess.newUserProcess();

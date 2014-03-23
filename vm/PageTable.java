@@ -114,11 +114,11 @@ public class PageTable {
         Lib.debug(dbgPT, "#In getEntryFromPhysical(): ppn = " + ppn);
         PIDEntry ret = null;
 
-        pageLock.acquire();
+//        pageLock.acquire();
         if (physicalToEntry.containsKey(ppn)) {
             ret = physicalToEntry.get(ppn);
         }
-        pageLock.release();
+//        pageLock.release();
 
         return ret;
     }
@@ -212,7 +212,7 @@ public class PageTable {
                 return null;
             }
 
-            iterateVirtualTable();
+//            iterateVirtualTable();
 //            iteratePhysicalTable();
 
             while (it.hasNext()) {
@@ -228,9 +228,9 @@ public class PageTable {
                     pe.setEntry(te);
 
                     set(vpn, pid, te);
-                    Lib.debug(dbgVM, "\t#(vic)Physical: " + getEntryFromPhysical(ppn).toString());
-                    Lib.debug(dbgVM, "\t#(vic)Virtual: " + getEntryFromVirtual(vpn, pid).toString());
-                    iterateVirtualTable();
+//                    Lib.debug(dbgVM, "\t#(vic)Physical: " + getEntryFromPhysical(ppn).toString());
+//                    Lib.debug(dbgVM, "\t#(vic)Virtual: " + getEntryFromVirtual(vpn, pid).toString());
+//                    iterateVirtualTable();
 //                    Lib.assertTrue(!getEntryFromPhysical(ppn).getEntry().used);
 //                    Lib.assertTrue(!getEntryFromVirtual(vpn, pid).getEntry().used);
                 } else { // now you are dead...

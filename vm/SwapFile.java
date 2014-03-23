@@ -79,10 +79,18 @@ public class SwapFile {
         if (indexMap.containsKey(targetVP))
         {
             int pageIndex = indexMap.get(targetVP);
+            int byteRead = swapFile.read(pageIndex * pageSize, buf, offset, pageSize);
+
+            Lib.debug(dbgVM, "@@@ In readPage(): read swap page: pid = " +
+                    pid + ", vpn = " + vpn + ", index = " + pageIndex +
+                    ", byteRead = " + byteRead);
 
             swapLock.release();
-            return swapFile.read(pageIndex * pageSize, buf, offset, pageSize);
+            return byteRead;
         }
+
+        Lib.debug(dbgVM, "@@@!!! In readPage(): cannot find swap page: pid = " +
+                            pid + ", vpn = " + vpn);
 
         swapLock.release();
         return -1;

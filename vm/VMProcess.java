@@ -179,6 +179,19 @@ public class VMProcess extends UserProcess {
                     + " count=" + count);
             System.arraycopy(physicalMemory, srcPos, data, offset + amount, count);
 
+            // TODO: debug
+            String str = new String(data, 0, count);
+            Lib.debug(dbgProcess, "\t(ReadVM) content: " + str);
+            Lib.debug(dbgProcess, "\t(ReadVM) content len = " + count);
+            Lib.debug(dbgProcess, "\t(ReadVM) split in chars:");
+            for (int n = 0; n < str.length(); n++) {
+                if (Lib.test(dbgProcess)) {
+                    Character c = str.charAt(n);
+                    System.out.println("charAt " + n + ": " + c
+                                    + " (" + ((int)c.charValue()));
+                }
+            }
+
             te.used = true; // make it used
 
             // update entry tables
@@ -303,7 +316,6 @@ public class VMProcess extends UserProcess {
         }
 
         // register stack pages and the parameter page
-        // XXX: do we really need this?
         int residue = numPages - pagesCount;
         Lib.assertTrue(residue == stackPages + 1); // 8 stack pages + 1 parameter page
         for (int i = 0; i < residue - 1; i++) {
@@ -565,7 +577,7 @@ public class VMProcess extends UserProcess {
             te.ppn = ppn;
             te.vpn = vpn;
             te.valid = true;
-            te.used = true;
+            te.used = false;
             te.dirty = false;
         }
 
@@ -645,7 +657,6 @@ public class VMProcess extends UserProcess {
             TranslationEntry te = Machine.processor().readTLBEntry(i);
 
             if (te != null && te.valid) {
-
                 pt.set(te.vpn, getRunningPID(), te);
             }
         }
