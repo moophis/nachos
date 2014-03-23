@@ -34,10 +34,10 @@ public class PageTable {
     }
 
     public void iteratePhysicalTable() {
-        Lib.debug(dbgVM, "#In iteratePhysicalTable(): ");
-        for (int ppn : physicalToEntry.keySet()) {
-            Lib.debug(dbgVM, ppn + "->" + physicalToEntry.get(ppn).toString());
-        }
+//        Lib.debug(dbgVM, "#In iteratePhysicalTable(): ");
+//        for (int ppn : physicalToEntry.keySet()) {
+//            Lib.debug(dbgVM, ppn + "->" + physicalToEntry.get(ppn).toString());
+//        }
     }
 
     /**

@@ -39,8 +39,8 @@ public class VMProcess extends UserProcess {
      * Called by <tt>UThread.saveState()</tt>.
      */
     public void saveState() {
-        Lib.debug(dbgVM, "In saveState(): running pid = " + getRunningPID());
-        iterateTLB();
+//        Lib.debug(dbgVM, "In saveState(): running pid = " + getRunningPID());
+//        iterateTLB();
 
         // save TLB
         Processor proc = Machine.processor();
@@ -65,9 +65,9 @@ public class VMProcess extends UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-        Lib.debug(dbgVM, "In restoreState(): last pid = " + getRunningPID()
-                                + "new pid = " + getOwnPID());
-        iterateTLB();
+//        Lib.debug(dbgVM, "In restoreState(): last pid = " + getRunningPID()
+//                                + "new pid = " + getOwnPID());
+//        iterateTLB();
 
         // set the current running pid
         runningPID = getOwnPID();
@@ -197,9 +197,9 @@ public class VMProcess extends UserProcess {
     public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
         Lib.assertTrue(offset >= 0 && length >= 0
                 && offset + length <= data.length);
-		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
-				+ data.length + ", beginning offset=" + offset + ", length=" + length
-				+ " current pid = " + getRunningPID());
+//		Lib.debug(dbgProcess, "In writeVirtualMemory(vm): vaddr=" + vaddr + ", byte len="
+//				+ data.length + ", beginning offset=" + offset + ", length=" + length
+//				+ " current pid = " + getRunningPID());
 
         byte[] physicalMemory = Machine.processor().getMemory();
         int amount = 0;
@@ -350,6 +350,9 @@ public class VMProcess extends UserProcess {
                 UserKernel.freePages.add(ppn);
                 UserKernel.fpLock.release();
             }
+
+            // delete swapped file if possible
+            SwapFile.getInstance().removePage(v, pid);
         }
 
         Lib.debug(dbgVM, "\tPageTables after unloadSections:");
@@ -379,16 +382,16 @@ public class VMProcess extends UserProcess {
     }
 
     private void iterateTLB() {
-        Lib.debug(dbgVM, "In iterateTLB(), current pid = " + getRunningPID());
-        int tlbSize = Machine.processor().getTLBSize();
-        Processor proc = Machine.processor();
-
-        for (int i = 0; i < tlbSize; i++) {
-            Lib.debug(dbgVM, "\tCurrent TLB(" + i + "): vpn = " +
-                    proc.readTLBEntry(i).vpn + ", ppn = " +
-                    proc.readTLBEntry(i).ppn + ", valid = " +
-                    proc.readTLBEntry(i).valid);
-        }
+//        Lib.debug(dbgVM, "In iterateTLB(), current pid = " + getRunningPID());
+//        int tlbSize = Machine.processor().getTLBSize();
+//        Processor proc = Machine.processor();
+//
+//        for (int i = 0; i < tlbSize; i++) {
+//            Lib.debug(dbgVM, "\tCurrent TLB(" + i + "): vpn = " +
+//                    proc.readTLBEntry(i).vpn + ", ppn = " +
+//                    proc.readTLBEntry(i).ppn + ", valid = " +
+//                    proc.readTLBEntry(i).valid);
+//        }
     }
 
     /**

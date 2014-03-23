@@ -112,6 +112,9 @@ public class SwapFile {
             int pageIndex = indexMap.get(targetVP);
             int byteWritten = swapFile.write(pageIndex, buf, offset, pageSize);
 
+            Lib.debug(dbgVM, "@@@ In writePage(): update swap page: pid = " +
+                            pid + ", vpn = " + vpn + ", index = " + pageIndex);
+
             swapLock.release();
             return byteWritten;
         } else {
@@ -119,6 +122,8 @@ public class SwapFile {
             int pageIndex = allocPage();
             Lib.assertTrue(pageIndex >= 0);
 
+            Lib.debug(dbgVM, "@@@ In writePage(): new swap page: pid = " +
+                    pid + ", vpn = " + vpn + ", index = " + pageIndex);
             /*
              * Update the swap map.
              * Note that we only need readOnly bit, others are not necessary.
@@ -132,6 +137,32 @@ public class SwapFile {
             return byteWritten;
         }
     }
+
+    /**
+     * Remove a page in swap.
+     * It is used when an program exits.
+     */
+    public void removePage(int vpn, int pid) {
+        if (vpn < 0 || pid < 0)
+            return;
+
+        VP targetVP = new VP(vpn, pid);
+
+        swapLock.acquire();
+        if (indexMap.containsKey(targetVP)) {
+            Lib.assertTrue(entryMap.containsKey(targetVP));
+
+            int freeIndex = indexMap.remove(targetVP);
+            entryMap.remove(targetVP);
+
+            freeSlots.add(freeIndex);
+
+            Lib.debug(dbgVM, "@@@@ In removePage(): delete vpn = " + vpn
+                    + ", pid = " + pid + ", index = " + freeIndex);
+        }
+        swapLock.release();
+    }
+
 
     /**
      * Find out whether the given page is in the swap file.
@@ -200,4 +231,6 @@ public class SwapFile {
     private Lock swapLock = new Lock();
 
     private static final int pageSize = Processor.pageSize;
+
+    private static final char dbgVM = 'v';
 }
