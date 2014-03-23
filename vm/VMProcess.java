@@ -146,7 +146,9 @@ public class VMProcess extends UserProcess {
             int tlbIndex = findEntryFromTLB(i);
 
             if (tlbIndex == -1) { // TLB miss
+                vmLock.acquire();
                 tlbIndex = handleTLBMiss(iAddr);
+                vmLock.release();
 
                 if (tlbIndex == -1) {
                     // abort
@@ -218,7 +220,9 @@ public class VMProcess extends UserProcess {
             int tlbIndex = findEntryFromTLB(i);
 
             if (tlbIndex == -1) { // TLB miss
+                vmLock.acquire();
                 tlbIndex = handleTLBMiss(iAddr);
+                vmLock.release();
 
                 if (tlbIndex == -1) {
                     // abort
@@ -646,8 +650,8 @@ public class VMProcess extends UserProcess {
             }
         }
 
-//        PIDEntry victim = PageTable.getInstance().victimize();
-        PIDEntry victim = PageTable.getInstance().randVictimize();
+        PIDEntry victim = PageTable.getInstance().victimize();
+//        PIDEntry victim = PageTable.getInstance().randVictimize();
         Lib.debug(dbgVM, "\tnextVictimPage(): victim: " + victim);
         return victim;
     }

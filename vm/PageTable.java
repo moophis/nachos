@@ -226,15 +226,15 @@ public class PageTable {
                 if (te.used) { // give you another chance
                     te.used = false;
                     pe.setEntry(te);
-//                    setVirtualToEntry(vpn, pid, pe);
-//                    setPhysicalToEntry(ppn, pe);
+
                     set(vpn, pid, te);
-//                    Lib.debug(dbgVM, "Physical: " + getEntryFromPhysical(ppn).toString());
-//                    Lib.debug(dbgVM, "Virtual: " + getEntryFromVirtual(vpn, pid).toString());
-                    Lib.assertTrue(!getEntryFromPhysical(ppn).getEntry().used);
-                    Lib.assertTrue(!getEntryFromVirtual(vpn, pid).getEntry().used);
+                    Lib.debug(dbgVM, "\t#(vic)Physical: " + getEntryFromPhysical(ppn).toString());
+                    Lib.debug(dbgVM, "\t#(vic)Virtual: " + getEntryFromVirtual(vpn, pid).toString());
+                    iterateVirtualTable();
+//                    Lib.assertTrue(!getEntryFromPhysical(ppn).getEntry().used);
+//                    Lib.assertTrue(!getEntryFromVirtual(vpn, pid).getEntry().used);
                 } else { // now you are dead...
-                    Lib.debug(dbgVM, "\t#Choose victim " + pe);
+                    Lib.debug(dbgVM, "\t#(vic)Choose victim " + pe);
                     return pe;
                 }
             }
