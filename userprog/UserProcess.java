@@ -432,6 +432,10 @@ public class UserProcess {
 		this.argv = entryOffset;
 
 		for (int i = 0; i < argv.length; i++) {
+            // TODO: debug
+            Lib.debug(dbgProcess, "\t(load) write arguments " + i
+                            + ", owner PID = " + getPID());
+
 			byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
 			Lib.assertTrue(writeVirtualMemory(entryOffset, stringOffsetBytes) == 4);
 			entryOffset += 4;
@@ -883,8 +887,8 @@ public class UserProcess {
         		return -1;
         	Lib.debug(dbgProcess, "\targs[" + i + "] = " + args[i]);
 
-            System.out.println("\t**args[" + i + "] = " + args[i]);
-            System.out.println("**args " + i + "@: " + argAddr);
+//            System.out.println("\t**args[" + i + "] = " + args[i]);
+//            System.out.println("**args " + i + "@: " + argAddr);
         }
         
 		UserProcess child = UserProcess.newUserProcess();

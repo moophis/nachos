@@ -183,14 +183,14 @@ public class VMProcess extends UserProcess {
             String str = new String(data, 0, count);
             Lib.debug(dbgProcess, "\t(ReadVM) content: " + str);
             Lib.debug(dbgProcess, "\t(ReadVM) content len = " + count);
-            Lib.debug(dbgProcess, "\t(ReadVM) split in chars:");
-            for (int n = 0; n < str.length(); n++) {
-                if (Lib.test(dbgProcess)) {
-                    Character c = str.charAt(n);
-                    System.out.println("charAt " + n + ": " + c
-                                    + " (" + ((int)c.charValue()));
-                }
-            }
+//            Lib.debug(dbgProcess, "\t(ReadVM) split in chars:");
+//            for (int n = 0; n < str.length(); n++) {
+//                if (Lib.test(dbgProcess)) {
+//                    Character c = str.charAt(n);
+//                    System.out.println("charAt " + n + ": " + c
+//                                    + " (" + ((int)c.charValue()));
+//                }
+//            }
 
             te.used = true; // make it used
 
@@ -228,53 +228,92 @@ public class VMProcess extends UserProcess {
         int toPage = Processor.pageFromAddress(vaddr + length - 1);
         int toOffset = Processor.offsetFromAddress(vaddr + length - 1);
 
-        for (int i = fromPage; i <= toPage; i++) {
-            int iAddr = Processor.makeAddress(i, 0);
-            int tlbIndex = findEntryFromTLB(i);
+        // specific for loading parameter page.
+        if (isLoadingArgs) {
+            Lib.debug(dbgProcess, "\t(WriteVM)+ Writing process arguments"
+                            + " for pid = " + getOwnPID());
+            Lib.assertTrue(fromPage == toPage);
+            Lib.assertTrue(fromOffset <= toOffset);
 
-            if (tlbIndex == -1) { // TLB miss
-                vmLock.acquire();
-                tlbIndex = handleTLBMiss(iAddr);
+            vmLock.acquire();
+            boolean result = true;
+            if (!isArgsLoaded) {
+                Lib.debug(dbgProcess, "\t(WriteVM)+ First swapIn arg page");
+                result = swapIn(fromPage, getOwnPID());
+                isArgsLoaded = true;
+            }
+            if (!result) {
+                Lib.debug(dbgProcess, "\t(WriteVM)+ Cannot load parameter page");
                 vmLock.release();
-
-                if (tlbIndex == -1) {
-                    // abort
-                    Lib.debug(dbgProcess, "\t(WriteVM) Cannot handle page fault!");
-                    handleExit(Processor.exceptionBusError);
-                }
-            }
-
-            TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
-            Lib.assertTrue((te != null) && te.valid);
-
-            // check if the read-only page is to be written.
-            if (te.readOnly) {
-                // abort
-                Lib.debug(dbgProcess, "\t(WriteVM) Try to write readOnly page " + i);
-                handleExit(Processor.exceptionReadOnly);
-            }
-
-            int ppn = te.ppn;
-            int count, off;
-            if (i == fromPage) {
-                count = Math.min(Processor.pageSize - fromOffset, length);
-                off = fromOffset;
-            } else if (i == toPage) {
-                count = toOffset + 1;
-                off = 0;
+                return 0;
             } else {
-                count = Processor.pageSize;
-                off = 0;
+                int count = toOffset - fromOffset + 1;
+                Lib.assertTrue(count == length);
+
+                PIDEntry pe = PageTable.getInstance()
+                             .getEntryFromVirtual(fromPage, getOwnPID());
+                Lib.assertTrue(pe != null);
+                int ppn = pe.getEntry().ppn;
+                int dstPos = Processor.makeAddress(ppn, fromOffset);
+                System.arraycopy(data, offset, physicalMemory, dstPos, count);
+
+                Lib.debug(dbgProcess, "\t(WriteVM)+ Write argument to vpn = "
+                                       + fromPage + ", offset = " + fromOffset
+                                       + ", length = " + count + ", pid = "
+                                       + getOwnPID());
+                vmLock.release();
+                return count;
             }
+        } else {
+            // handle normal pages
+            for (int i = fromPage; i <= toPage; i++) {
+                int iAddr = Processor.makeAddress(i, 0);
+                int tlbIndex = findEntryFromTLB(i);
 
-            int dstPos = Processor.makeAddress(ppn, off);
-            System.arraycopy(data, offset + amount, physicalMemory, dstPos, count);
+                if (tlbIndex == -1) { // TLB miss
+                    vmLock.acquire();
+                    tlbIndex = handleTLBMiss(iAddr);
+                    vmLock.release();
 
-            te.dirty = true;  // set it dirty
-            te.used = true;  // set it used
-            Machine.processor().writeTLBEntry(tlbIndex, te); // write-back mechanism
+                    if (tlbIndex == -1) {
+                        // abort
+                        Lib.debug(dbgProcess, "\t(WriteVM) Cannot handle page fault!");
+                        handleExit(Processor.exceptionBusError);
+                    }
+                }
 
-            amount += count;
+                TranslationEntry te = Machine.processor().readTLBEntry(tlbIndex);
+                Lib.assertTrue((te != null) && te.valid);
+
+                // check if the read-only page is to be written.
+                if (te.readOnly) {
+                    // abort
+                    Lib.debug(dbgProcess, "\t(WriteVM) Try to write readOnly page " + i);
+                    handleExit(Processor.exceptionReadOnly);
+                }
+
+                te.dirty = true;  // set it dirty
+                te.used = true;  // set it used
+                Machine.processor().writeTLBEntry(tlbIndex, te); // write-back mechanism
+
+                int ppn = te.ppn;
+                int count, off;
+                if (i == fromPage) {
+                    count = Math.min(Processor.pageSize - fromOffset, length);
+                    off = fromOffset;
+                } else if (i == toPage) {
+                    count = toOffset + 1;
+                    off = 0;
+                } else {
+                    count = Processor.pageSize;
+                    off = 0;
+                }
+
+                int dstPos = Processor.makeAddress(ppn, off);
+                System.arraycopy(data, offset + amount, physicalMemory, dstPos, count);
+
+                amount += count;
+            }
         }
 
         return amount;
@@ -380,6 +419,18 @@ public class VMProcess extends UserProcess {
 //        vmLock.release();
     }
 
+    @Override
+    public boolean execute(String name, String[] args) {
+        boolean ret;
+
+        isLoadingArgs = true;
+        ret = super.execute(name, args);
+        isLoadingArgs = false;
+
+        return ret;
+    }
+
+
     /**
      * Invalidate all TLB entry.
      * Only used on termination.
@@ -416,6 +467,9 @@ public class VMProcess extends UserProcess {
      * @param vaddr - the virtual memory address.
      * @return - index in TLB, if TLB is handled;
      *           -1, if the miss cannot be handled, might be an illegal access.
+     *           -2, if the miss is because the current process is trying to
+     *               write arguments onto parameter page of its new spawned
+     *               process.
      */
     private int handleTLBMiss(int vaddr) {
         Lib.debug(dbgVM, "--- In handleTLBMiss(): vaddr = " + vaddr + " vpn = "
@@ -713,6 +767,7 @@ public class VMProcess extends UserProcess {
 
     /**
      * The PID of current running process.
+     *
      * Note that currentPID does not necessary equal to
      * pid (the pid of this VMProcess object), because
      * when one process create another process, a new
@@ -726,6 +781,23 @@ public class VMProcess extends UserProcess {
      * pid in order not to write wrong TLB entry to TLB.
      */
     public static int runningPID = 0;
+
+    /**
+     * Indicate whether the page being loaded is the
+     * parameter page.
+     *
+     * Note that the parameter page is associated with
+     * the process itself, not its parent. But writing
+     * real arguments on that page is done by its parent,
+     * so there should be some PID inconsistency issues.
+     * That is why this boolean value important.
+     */
+    private boolean isLoadingArgs = false;
+
+    /**
+     * Indicate whether the argument page is loaded.
+     */
+    private boolean isArgsLoaded = false;
 
     private static final int pageSize = Processor.pageSize;
 
